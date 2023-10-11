@@ -1,4 +1,4 @@
-dataset_dir: /home/public/dcase/dcase22
+dataset_dir: D:\Shilong\murmur\01_dataset
 model_dir: ./model
 spec_dir: ../../spec
 log_dir: ./log
@@ -13,14 +13,14 @@ feat:
   graph_hop_f: 1
 
 net:
-  act: ['leakyrelu', 'relu']  # Encoder, Decoder
-  normalize: {'d':'ln', 'g': 'ln'}
+  act: ["leakyrelu", "relu"] # Encoder, Decoder
+  normalize: { "d": "ln", "g": "ln" }
   nz: 256
   ndf: 32
   ngf: 32
   isize: 128
 
-train_set: 'dev'  # 'dev', 'eval', 'deval'
+train_set: "dev" # 'dev', 'eval', 'deval'
 
 train:
   lrD: 0.0002
@@ -30,9 +30,9 @@ train:
   batch_size: 512
   wgan:
     feat_match_eff: 0.1
-    match_item: {'mu': 1}  # 'mu': 1, 'sigma': 1
+    match_item: { "mu": 1 } # 'mu': 1, 'sigma': 1
     ncritic: 1
-    lambda_gp: 10  # for gradient penalty
+    lambda_gp: 10 # for gradient penalty
 
 detect:
   p: 0.1

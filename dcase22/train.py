@@ -19,7 +19,7 @@ from net import Generator, Discriminator
 from datasets import train_dataset, test_dataset
 
 
-with open('config.yaml') as fp:
+with open(r'D:\Shilong\murmur\00_Code\LM\AEGAN-AD\dcase22\config.yaml') as fp:
     param = yaml.safe_load(fp)
 
 
@@ -328,7 +328,7 @@ if __name__ == '__main__':
                'slider', 'ToyCar', 'ToyTrain', 'valve']
     card_num = torch.cuda.device_count()
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mt', choices=mt_list, default='gearbox')
+    parser.add_argument('--mt', choices=mt_list, default='fan')
     parser.add_argument('-c', '--card_id', type=int,
                         choices=list(range(card_num)), default=2)
     parser.add_argument('--resume', action='store_true', default=False)
