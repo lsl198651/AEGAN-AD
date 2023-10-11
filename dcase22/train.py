@@ -297,7 +297,7 @@ def main(logger):
                                          num_workers=0)
 
     # create two networks and their optimizers
-    device = torch.device('cuda:{}'.format(param['card_id']))
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     netD = Discriminator(param)
     netG = Generator(param)
     if param['resume']:
