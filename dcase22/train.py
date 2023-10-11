@@ -27,13 +27,15 @@ class D2GLoss(torch.nn.Module):
     '''
         Feature matching loss described in the paper.
     '''
+
     def __init__(self, cfg):
         super(D2GLoss, self).__init__()
         self.cfg = cfg
 
     def forward(self, feat_fake, feat_real):
         loss = 0
-        norm_loss = {'l2': lambda x, y: F.mse_loss(x, y), 'l1': lambda x, y: F.l1_loss(x, y)}
+        norm_loss = {'l2': lambda x, y: F.mse_loss(
+            x, y), 'l1': lambda x, y: F.l1_loss(x, y)}
         stat = {'mu': lambda x: x.mean(dim=0),
                 'sigma': lambda x: (x - x.mean(dim=0, keepdim=True)).pow(2).mean(dim=0).sqrt()}
 
@@ -44,7 +46,8 @@ class D2GLoss(torch.nn.Module):
             loss += mu_eff * norm
         if 'sigma' in self.cfg.keys():
             sigma_eff = self.cfg['sigma']
-            sigma_fake, sigma_real = stat['sigma'](feat_fake), stat['sigma'](feat_real)
+            sigma_fake, sigma_real = stat['sigma'](
+                feat_fake), stat['sigma'](feat_real)
             norm = norm_loss['l2'](sigma_fake, sigma_real)
             loss += sigma_eff * norm
         return loss
@@ -55,11 +58,14 @@ def compute_gradient_penalty(D, real_samples, fake_samples, device):
         Calculates the gradient penalty loss for WGAN GP
     """
     # Random weight term for interpolation between real and fake samples
-    alpha = torch.rand((real_samples.shape[0], 1, 1, 1), dtype=torch.float32, device=device)
+    alpha = torch.rand(
+        (real_samples.shape[0], 1, 1, 1), dtype=torch.float32, device=device)
     # Get random interpolation between real and fake samples
-    interpolates = (alpha * real_samples + ((1 - alpha) * fake_samples)).requires_grad_(True)
+    interpolates = (alpha * real_samples + ((1 - alpha)
+                    * fake_samples)).requires_grad_(True)
     d_interpolates = D(interpolates)[0].view(-1, 1)
-    fake = torch.ones((real_samples.shape[0], 1), dtype=torch.float32, device=device)
+    fake = torch.ones(
+        (real_samples.shape[0], 1), dtype=torch.float32, device=device)
     # Get gradient w.r.t. interpolates
     gradients = autograd.grad(
         outputs=d_interpolates,
@@ -87,8 +93,10 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
         recon = netG(mel)
         pred_real, _ = netD(mel)
         pred_fake, _ = netD(recon.detach())
-        gradient_penalty = compute_gradient_penalty(netD, mel.data, recon.data, device)
-        d_loss = - torch.mean(pred_real) + torch.mean(pred_fake) + lambda_gp * gradient_penalty
+        gradient_penalty = compute_gradient_penalty(
+            netD, mel.data, recon.data, device)
+        d_loss = - torch.mean(pred_real) + \
+            torch.mean(pred_fake) + lambda_gp * gradient_penalty
         optimD.zero_grad()
         d_loss.backward()
         optimD.step()
@@ -121,7 +129,8 @@ def get_d_aver_emb(netD, train_set, device):
         extract embeddings of the train set via the gdconv layer of the discriminator
     '''
     netD.eval()
-    train_embs = {sec: {'source': [], 'target': []} for sec in param['all_sec']}
+    train_embs = {sec: {'source': [], 'target': []}
+                  for sec in param['all_sec']}
     with torch.no_grad():
         for idx in range(train_set.get_clip_num()):
             mel, attri, _ = train_set.get_clip_data(idx)
@@ -132,7 +141,8 @@ def get_d_aver_emb(netD, train_set, device):
             train_embs[attri[0][0]][dom].append(feat_real)
     for sec in train_embs.keys():
         for dom in ['source', 'target']:
-            train_embs[sec][dom] = np.array(train_embs[sec][dom], dtype=np.float32)
+            train_embs[sec][dom] = np.array(
+                train_embs[sec][dom], dtype=np.float32)
     return train_embs
 
 
@@ -146,11 +156,13 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
     for i in range(param['train']['epoch']):
         start = time.time()
 
-        netD, netG, aver_loss = train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff)
+        netD, netG, aver_loss = train_one_epoch(
+            netD, netG, train_loader, optimD, optimG, device, d2g_eff)
 
         train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
 
-        hmean, metric = test(netD, netG, test_loader['dev_test'], train_embs, logger, device)
+        hmean, metric = test(
+            netD, netG, test_loader['dev_test'], train_embs, logger, device)
 
         if best_hmean is None or best_hmean < hmean[3]:
             best_hmean = hmean[3]
@@ -161,7 +173,8 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
         logger.info('=======> [AUC_s: {:.4f}] [AUC_t: {:.4f}] [pAUC: {:.4f}] [hmean: {:.4f}] [metric: {}] [best: {:.4f}]'.format(
                     hmean[0], hmean[1], hmean[2], hmean[3], metric, best_hmean))
 
-    torch.save({'netD': bestD, 'netG': bestG, 'best_hmean': best_hmean}, param['model_pth'])
+    torch.save({'netD': bestD, 'netG': bestG,
+               'best_hmean': best_hmean}, param['model_pth'])
 
 
 # @profile
@@ -194,7 +207,8 @@ def test(netD, netG, test_loader, train_embs, logger, device):
     netD.eval()
     netG.eval()
     # {sec: {'source': [], 'target': []}}
-    y_true_all, y_score_all = [{} for _ in metric2id.keys()], [{} for _ in metric2id.keys()]
+    y_true_all, y_score_all = [{} for _ in metric2id.keys()], [
+        {} for _ in metric2id.keys()]
     with torch.no_grad():
         for mel, attri, label in test_loader:  # mel: 1*186*1*128*128
             mel = mel.squeeze(0).to(device)
@@ -205,7 +219,8 @@ def test(netD, netG, test_loader, train_embs, logger, device):
             feat_t = feat_t.mean(axis=0, keepdim=True).cpu().numpy()
             label = label.numpy()
             attri = attri.squeeze(0)
-            sec, domain, status = attri[0][0].item(), attri[0][1].item(), label[0][0]
+            sec, domain, status = attri[0][0].item(
+            ), attri[0][1].item(), label[0][0]
             domain = 'source' if domain == 0 else 'target'
 
             for idx, metric in id2metric.items():
@@ -229,22 +244,30 @@ def test(netD, netG, test_loader, train_embs, logger, device):
     hmean_all = []
     for idx in range(len(y_true_all)):
         result = []
-        y_true = dict(sorted(y_true_all[idx].items(), key=lambda t: t[0]))  # sort by key, upward
+        # sort by key, upward
+        y_true = dict(sorted(y_true_all[idx].items(), key=lambda t: t[0]))
         y_score = dict(sorted(y_score_all[idx].items(), key=lambda t: t[0]))
         for s in y_true.keys():
-            y_true_s_auc = y_true[s]['source'] + [1 for _ in np.where(np.array(y_true[s]['target']) == 1)[0]]
-            y_score_s_auc = y_score[s]['source'] + [y_score[s]['target'][idx] for idx in np.where(np.array(y_true[s]['target']) == 1)[0]]
-            y_true_t_auc = y_true[s]['target'] + [1 for _ in np.where(np.array(y_true[s]['source']) == 1)[0]]
-            y_score_t_auc = y_score[s]['target'] + [y_score[s]['source'][idx] for idx in np.where(np.array(y_true[s]['source']) == 1)[0]]
+            y_true_s_auc = y_true[s]['source'] + \
+                [1 for _ in np.where(np.array(y_true[s]['target']) == 1)[0]]
+            y_score_s_auc = y_score[s]['source'] + [y_score[s]['target'][idx]
+                                                    for idx in np.where(np.array(y_true[s]['target']) == 1)[0]]
+            y_true_t_auc = y_true[s]['target'] + \
+                [1 for _ in np.where(np.array(y_true[s]['source']) == 1)[0]]
+            y_score_t_auc = y_score[s]['target'] + [y_score[s]['source'][idx]
+                                                    for idx in np.where(np.array(y_true[s]['source']) == 1)[0]]
             y_true_pauc = y_true[s]['source'] + y_true[s]['target']
             y_score_pauc = y_score[s]['source'] + y_score[s]['target']
 
             AUC_s = metrics.roc_auc_score(y_true_s_auc, y_score_s_auc)
             AUC_t = metrics.roc_auc_score(y_true_t_auc, y_score_t_auc)
-            pAUC = metrics.roc_auc_score(y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
+            pAUC = metrics.roc_auc_score(
+                y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
             result.append([AUC_s, AUC_t, pAUC])
-        hmeans = scipy.stats.hmean(np.maximum(np.array(result, dtype=float), sys.float_info.epsilon), axis=0)  # AUC_s, AUC_t, pAUC
-        hmean = scipy.stats.hmean(np.maximum(np.array(result, dtype=float), sys.float_info.epsilon), axis=None)
+        hmeans = scipy.stats.hmean(np.maximum(np.array(
+            result, dtype=float), sys.float_info.epsilon), axis=0)  # AUC_s, AUC_t, pAUC
+        hmean = scipy.stats.hmean(np.maximum(
+            np.array(result, dtype=float), sys.float_info.epsilon), axis=None)
         hmean_all.append([hmeans[0], hmeans[1], hmeans[2], hmean])
     hmean_all = np.array(hmean_all)
     best_hmean = np.max(hmean_all[:, 3])
@@ -256,7 +279,8 @@ def test(netD, netG, test_loader, train_embs, logger, device):
 
 
 def main(logger):
-    logger.info('========= Train Machine Type: {} ========='.format(param['mt']))
+    logger.info(
+        '========= Train Machine Type: {} ========='.format(param['mt']))
     # create datasets and dataloaders
     train_data = train_dataset(param)
     param['all_sec'] = train_data.get_sec()
@@ -277,7 +301,8 @@ def main(logger):
     netD = Discriminator(param)
     netG = Generator(param)
     if param['resume']:
-        pth_file = torch.load(utils.get_model_pth(param), map_location=torch.device('cpu'))
+        pth_file = torch.load(utils.get_model_pth(
+            param), map_location=torch.device('cpu'))
         netD_dict, netG_dict, best_hmean = pth_file['netD'], pth_file['netG'], pth_file['best_hmean']
         netD.load_state_dict(netD_dict)
         netG.load_state_dict(netG_dict)
@@ -294,15 +319,18 @@ def main(logger):
                               lr=param['train']['lrG'],
                               betas=(param['train']['beta1'], 0.999))
 
-    train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device, best_hmean)
+    train(netD, netG, train_loader, test_loader,
+          optimD, optimG, logger, device, best_hmean)
 
 
 if __name__ == '__main__':
-    mt_list = ['bearing', 'fan', 'gearbox', 'slider', 'ToyCar', 'ToyTrain', 'valve']
+    mt_list = ['bearing', 'fan', 'gearbox',
+               'slider', 'ToyCar', 'ToyTrain', 'valve']
     card_num = torch.cuda.device_count()
     parser = argparse.ArgumentParser()
     parser.add_argument('--mt', choices=mt_list, default='gearbox')
-    parser.add_argument('-c', '--card_id', type=int, choices=list(range(card_num)), default=2)
+    parser.add_argument('-c', '--card_id', type=int,
+                        choices=list(range(card_num)), default=2)
     parser.add_argument('--resume', action='store_true', default=False)
     parser.add_argument('--seed', type=int, default=783)
     opt = parser.parse_args()
