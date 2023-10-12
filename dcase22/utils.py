@@ -42,14 +42,15 @@ def generate_spec(clip_addr, fft_num, mel_bin, frame_hop, top_dir,
                     set_clip_spec = np.zeros(
                         (len(clip_addr[set_type]) * mel_bin, mel.shape[1]), dtype=np.float32)
                 set_clip_spec[idx * mel_bin:(idx + 1) * mel_bin, :] = mel_db
-            np.save(raw_data_file, set_clip_spec)
+            np.save(raw_data_file, set_clip_spec)  # 保存logmel谱数据
         else:
             set_clip_spec = np.load(raw_data_file)
         if all_clip_spec is None:
             all_clip_spec = set_clip_spec
         else:
             all_clip_spec = np.vstack((all_clip_spec, set_clip_spec))
-
+            # 把所有logmel谱按照纵向排列堆叠，（3000*128）*313 = all_clip_spec
+    # 求出长度为313的logmel谱，每个logmel谱的长度为3000*128
     frame_num_per_clip = all_clip_spec.shape[-1]
     save_dir = os.path.join(top_dir, setn, mt)
     os.makedirs(save_dir, exist_ok=True)
@@ -58,14 +59,14 @@ def generate_spec(clip_addr, fft_num, mel_bin, frame_hop, top_dir,
     if data_type == 'train' and rescale_ctl:  # scale to [-1,1]
         max_v = np.max(all_clip_spec)
         min_v = np.min(all_clip_spec)
-        np.save(scale_data_file, [max_v, min_v])
+        np.save(scale_data_file, [max_v, min_v])  # 保存logmel最大最小值
     else:
         maxmin = np.load(scale_data_file)
         max_v, min_v = maxmin[0], maxmin[1]
 
-    mean = (max_v + min_v) / 2
-    scale = (max_v - min_v) / 2
-    all_clip_spec = (all_clip_spec - mean) / scale
+    mean = (max_v + min_v) / 2  # 均值
+    scale = (max_v - min_v) / 2  # 标准差
+    all_clip_spec = (all_clip_spec - mean) / scale  # 去直流，归一化
 
     all_clip_spec = all_clip_spec.reshape(-1, mel_bin, frame_num_per_clip)
     return all_clip_spec
