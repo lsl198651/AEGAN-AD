@@ -63,16 +63,19 @@ class train_dataset(Dataset):
         return self.all_label.shape[0] * self.graph_num_per_clip
 
     def __getitem__(self, idx):  # output one segment at a time
-        clip_id = idx // self.graph_num_per_clip
-        spec_id = idx % self.graph_num_per_clip
+        clip_id = idx // self.graph_num_per_clip  # 1 // 186 = 0
+        spec_id = idx % self.graph_num_per_clip  # 1 % 186 = 1
         data = np.zeros((1, self.param['feat']['mel_bin'],
                          self.param['feat']['frame_num']), dtype=np.float32)
+        # zeros = 1*128*313, dtype = float32
         data[0, :, :] = self.all_clip_spec[clip_id, :,
                                            spec_id: spec_id + self.param['feat']['frame_num']]
+        # all_clip_spec[0, :, 1: 1 + 313]
         attri = self.all_attri[clip_id]
         label = self.all_label[clip_id]
         return data, attri, label
 
+    # all_attri第0列去除重复数据
     def get_sec(self):
         return np.unique(self.all_attri[:, 0]).tolist()
 

@@ -283,6 +283,7 @@ def main(logger):
         '========= Train Machine Type: {} ========='.format(param['mt']))
     # create datasets and dataloaders
     train_data = train_dataset(param)
+    # all_attri去除重复数据
     param['all_sec'] = train_data.get_sec()
     train_loader = DataLoader(train_data,
                               batch_size=param['train']['batch_size'],
