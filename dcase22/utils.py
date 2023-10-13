@@ -192,3 +192,20 @@ def get_logger(param):
     logger.info('Train starts at: {}'.format(
         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     return logger
+
+
+def get_mle_features(path):
+    """按照path读取每个wav文件，
+    提取logmel谱，然后保存到mle_features文件夹中保存为feature.npy供使用
+
+    也可以直接读wav数据传入dataset
+    然后在网络中加入提取logmel谱的层来回去mei谱
+    """
+    mle_features = []
+    for wav in tqdm(path):
+        clip, sr = librosa.load(wav, sr=None, mono=True)
+        mel = librosa.feature.melspectrogram(y=clip, sr=sr, n_fft=1024,
+                                             hop_length=256, n_mels=128)
+        mel_db = librosa.power_to_db(mel, ref=1)  # log-mel, (128, 313)
+        mle_features.append(mel_db)
+    return mle_features
