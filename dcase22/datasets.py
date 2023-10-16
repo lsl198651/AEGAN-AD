@@ -6,17 +6,17 @@ import utils
 
 
 class train_dataset(Dataset):
-    def __init__(self, param):
+    def __init__(self, param,args):
         '''Dataset for training purpose. Output one segment at a time.
 
         Args:
             param (dict): hyper parameters stored in config.yaml
         '''
         clip_dir, set_name = {}, []
-        if 'dev' in param['train_set']:
+        if args.trainset=='train' :
             # 设置数据路径
             clip_dir['dev'] = os.path.join(
-                param['dataset_dir'], 'dev_data',  'train')
+                param['dataset_dir'], 'dev_data',  'trainset')
             set_name.append('dev')
         if 'eval' in param['train_set']:
             clip_dir['eval'] = os.path.join(
@@ -24,40 +24,34 @@ class train_dataset(Dataset):
             set_name.append('eval')
         self.param = param
 
-        self.set_clip_addr, set_attri, set_label = {}, {}, {}
+        self.set_clip_addr = {}
+
         for set_type in set_name:
             # 返回wav文件名
             self.set_clip_addr[set_type] = utils.get_clip_addr(
                 clip_dir[set_type])
-            # 提取属性
-            set_attri[set_type] = utils.extract_attri(
-                self.set_clip_addr[set_type], param['mt'])
-            # 生成标签全部=0
-            set_label[set_type] = utils.generate_label(
-                self.set_clip_addr[set_type], set_type, 'train')
+            # # 提取属性
+            # set_attri[set_type] = utils.extract_attri(
+            #     self.set_clip_addr[set_type], param['mt'])
+            # # 生成标签全部=0
+            # set_label[set_type] = utils.generate_label(
+            #     self.set_clip_addr[set_type], set_type, 'train')
 
         self.all_attri, self.all_label = None, None
-        for set_type in set_name:
-            if self.all_label is None:
-                # 把属性和标签传类属性
-                self.all_attri = set_attri[set_type]
-                self.all_label = set_label[set_type]
-            else:
-                self.all_attri = np.vstack(
-                    (self.all_attri, set_attri[set_type]))
-                self.all_label = np.hstack(
-                    (self.all_label, set_label[set_type]))
+        # for set_type in set_name:
+        #     if self.all_label is None:
+        #         # 把属性和标签传类属性
+        #         self.all_attri = set_attri[set_type]
+        #         self.all_label = set_label[set_type]
+        #     else:
+        #         self.all_attri = np.vstack(
+        #             (self.all_attri, set_attri[set_type]))
+        #         self.all_label = np.hstack(
+        #             (self.all_label, set_label[set_type]))
 
         print("============== TRAIN DATASET GENERATOR ==============")
         # 3000*128*313的logmel谱
-        self.all_clip_spec = utils.generate_spec(clip_addr=self.set_clip_addr,
-                                                 fft_num=param['feat']['fft_num'],
-                                                 mel_bin=param['feat']['mel_bin'],
-                                                 frame_hop=param['feat']['frame_hop'],
-                                                 top_dir=param['spec_dir'],
-                                                 mt=param['mt'],
-                                                 data_type='train',
-                                                 setn=param['train_set'])
+        self.all_clip_spec = utils.generate_spec(clip_addr=self.set_clip_addr)
         # gn = 313 - 128 + 1 = 186
         gn = (self.all_clip_spec.shape[-1] - param['feat']['frame_num'] + 1)
         self.graph_num_per_clip = gn // param['feat']['graph_hop_f']

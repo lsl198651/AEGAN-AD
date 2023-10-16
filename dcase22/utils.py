@@ -21,31 +21,29 @@ def get_clip_addr(clip_dir, ext='wav'):
     return clip_addr
 
 
-def generate_spec(clip_addr, fft_num, mel_bin=128, frame_hop=512, top_dir=None, data_type='train', rescale_ctl=True):
+def generate_spec(clip_addr,  top_dir=None):
     all_clip_spec = None
 
     for set_type in clip_addr.keys():  # 'dev', 'eval'
         save_dir = os.path.join(top_dir, set_type)
         os.makedirs(save_dir, exist_ok=True)
         # 设置保存路径
-        raw_data_file = os.path.join(save_dir,
-                                     f'raw_mel_{mel_bin}_{fft_num}_{frame_hop}_1.npy')
+        #  mel_bin=128, frame_hop=512,fft_num=2048
+        mel_bin=128
+        raw_data_file = os.path.join(save_dir,'raw_logmel_128bin_2048fft_512_1.npy')
 
         if not os.path.exists(raw_data_file):
             for idx in tqdm(range(len(clip_addr[set_type]))):
-                # clip, sr = librosa.load(
-                #     clip_addr[set_type][idx], sr=None, mono=True)
-                # mel = librosa.feature.melspectrogram(y=clip, sr=sr, n_fft=fft_num,
-                #                                      hop_length=frame_hop, n_mels=mel_bin)
-                # mel_db = librosa.power_to_db(mel, ref=1)  # log-mel, (128, 313)
-                mel_db = ta_kaldi.fbank(
+                # 读取wav文件，提取logmel谱fbank
+                fbank = ta_kaldi.fbank(
                     clip_addr[set_type][idx], num_mel_bins=128, sample_frequency=16000, frame_length=25, frame_shift=10)
 
                 if idx == 0:
+                    # 创建全0矩阵，(3000*128)*313
                     set_clip_spec = np.zeros(
-                        (len(clip_addr[set_type]) * mel_bin, mel_db.shape[1]), dtype=np.float32)
-                set_clip_spec[idx * mel_bin:(idx + 1) * mel_bin, :] = mel_db
-            np.save(raw_data_file, set_clip_spec)  # 保存logmel谱数据
+                        (len(clip_addr[set_type]) * mel_bin, fbank.shape[1]), dtype=np.float32)
+                set_clip_spec[idx * mel_bin:(idx + 1) * mel_bin, :] = fbank
+            np.save(raw_data_file, set_clip_spec)  # 保存fbank数据
         else:
             set_clip_spec = np.load(raw_data_file)
         if all_clip_spec is None:
@@ -54,30 +52,25 @@ def generate_spec(clip_addr, fft_num, mel_bin=128, frame_hop=512, top_dir=None, 
             all_clip_spec = np.vstack((all_clip_spec, set_clip_spec))
             # 把所有logmel谱按照纵向排列堆叠，（3000*128）*313 = all_clip_spec
     # 求出长度为313的logmel谱，每个logmel谱的长度为3000*128
-    frame_num_per_clip = all_clip_spec.shape[-1]
-    save_dir = os.path.join(top_dir)
-    os.makedirs(save_dir, exist_ok=True)
-    scale_data_file = os.path.join(save_dir,
-                                   f'train_scale_mel_{mel_bin}_{fft_num}_{frame_hop}_1.npy')
-    if data_type == 'train' and rescale_ctl:  # scale to [-1,1]
-        max_v = np.max(all_clip_spec)
-        min_v = np.min(all_clip_spec)
-        np.save(scale_data_file, [max_v, min_v])  # 保存logmel最大最小值
-    else:
-        maxmin = np.load(scale_data_file)
-        max_v, min_v = maxmin[0], maxmin[1]
+    frame_num_per_clip = all_clip_spec.shape[-1]# 313
+    max_v = np.max(all_clip_spec)
+    min_v = np.min(all_clip_spec)
+    print('fbank scale max: {}, min: {}'.format(max_v, min_v))
 
-    mean = (max_v + min_v) / 2  # 均值
-    scale = (max_v - min_v) / 2  # 标准差
-    all_clip_spec = (all_clip_spec - mean) / scale  # 去直流，归一化
-
-    all_clip_spec = all_clip_spec.reshape(-1, mel_bin, frame_num_per_clip)
+    fbank_mean = (max_v + min_v) / 2  # 均值
+    scale = (max_v - min_v) / 2  # 范围
+    fbank_std= np.std(all_clip_spec)
+    all_clip_spec = (all_clip_spec - fbank_mean) / scale  # 去直流，归一化
+    all_clip_spec = (all_clip_spec - fbank_mean) / fbank_std  # 去直流，标准化
+    all_clip_spec = all_clip_spec.reshape(-1, mel_bin, frame_num_per_clip)  # reshape fbank 特征 
     return all_clip_spec
 
 
 def generate_label(clip_addr, set_type, data_type):
     label = np.zeros((len(clip_addr)), dtype=int)
-
+    # normal: 0, anomaly: 1 dev_test
+    # normal: 0, dev_train
+    # normal: -1, anomaly: -1, eval_test
     for idx in range(len(clip_addr)):
         # train：section_01_target_train_normal_0000_f-n_C.wav
         # test：section_01_target_test_normal_0029_f-n_C.wav
@@ -210,11 +203,5 @@ def get_mle_features(path):
     也可以直接读wav数据传入dataset
     然后在网络中加入提取logmel谱的层来回去mei谱
     """
-    mle_features = []
-    for wav in tqdm(path):
-        clip, sr = librosa.load(wav, sr=None, mono=True)
-        mel = librosa.feature.melspectrogram(y=clip, sr=sr, n_fft=1024,
-                                             hop_length=256, n_mels=128)
-        mel_db = librosa.power_to_db(mel, ref=1)  # log-mel, (128, 313)
-        mle_features.append(mel_db)
+
     return mle_features
