@@ -21,19 +21,18 @@ def get_clip_addr(clip_dir, ext='wav'):
     return clip_addr
 
 
-def generate_spec(clip_addr, fft_num, mel_bin=128, frame_hop=512, top_dir=None,
-                  mt, data_type, setn, rescale_ctl=True):
+def generate_spec(clip_addr, fft_num, mel_bin=128, frame_hop=512, top_dir=None, data_type='train', rescale_ctl=True):
     all_clip_spec = None
 
     for set_type in clip_addr.keys():  # 'dev', 'eval'
-        save_dir = os.path.join(top_dir, set_type, mt)
+        save_dir = os.path.join(top_dir, set_type)
         os.makedirs(save_dir, exist_ok=True)
         # 设置保存路径
         raw_data_file = os.path.join(save_dir,
-                                     f'{data_type}_raw_mel_{mel_bin}_{fft_num}_{frame_hop}_1.npy')
+                                     f'raw_mel_{mel_bin}_{fft_num}_{frame_hop}_1.npy')
 
         if not os.path.exists(raw_data_file):
-            for idx in tqdm(range(len(clip_addr[set_type])), desc=f'{mt}-{setn}-{data_type}'):
+            for idx in tqdm(range(len(clip_addr[set_type]))):
                 # clip, sr = librosa.load(
                 #     clip_addr[set_type][idx], sr=None, mono=True)
                 # mel = librosa.feature.melspectrogram(y=clip, sr=sr, n_fft=fft_num,
@@ -56,7 +55,7 @@ def generate_spec(clip_addr, fft_num, mel_bin=128, frame_hop=512, top_dir=None,
             # 把所有logmel谱按照纵向排列堆叠，（3000*128）*313 = all_clip_spec
     # 求出长度为313的logmel谱，每个logmel谱的长度为3000*128
     frame_num_per_clip = all_clip_spec.shape[-1]
-    save_dir = os.path.join(top_dir, setn, mt)
+    save_dir = os.path.join(top_dir)
     os.makedirs(save_dir, exist_ok=True)
     scale_data_file = os.path.join(save_dir,
                                    f'train_scale_mel_{mel_bin}_{fft_num}_{frame_hop}_1.npy')

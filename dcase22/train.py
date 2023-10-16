@@ -325,15 +325,10 @@ def main(logger):
 
 
 if __name__ == '__main__':
-    mt_list = ['bearing', 'fan', 'gearbox',
-               'slider', 'ToyCar', 'ToyTrain', 'valve']
-    card_num = torch.cuda.device_count()
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mt', choices=mt_list, default='fan')
-    parser.add_argument('-c', '--card_id', type=int,
-                        choices=list(range(card_num)), default=2)
-    parser.add_argument('--resume', action='store_true', default=False)
-    parser.add_argument('--seed', type=int, default=783)
+
+    parser.add_argument('--seed', type=int, default=111)
     opt = parser.parse_args()
 
     # trivial settings
