@@ -14,27 +14,32 @@ class train_dataset(Dataset):
         '''
         clip_dir, set_name = {}, []
         if 'dev' in param['train_set']:
+            # 设置数据路径
             clip_dir['dev'] = os.path.join(
-                param['dataset_dir'], 'dev_data', param['mt'], 'train')
+                param['dataset_dir'], 'dev_data',  'train')
             set_name.append('dev')
         if 'eval' in param['train_set']:
             clip_dir['eval'] = os.path.join(
-                param['dataset_dir'], 'eval_data', param['mt'], 'train')
+                param['dataset_dir'], 'eval_data', 'train')
             set_name.append('eval')
         self.param = param
 
         self.set_clip_addr, set_attri, set_label = {}, {}, {}
         for set_type in set_name:
+            # 返回wav文件名
             self.set_clip_addr[set_type] = utils.get_clip_addr(
                 clip_dir[set_type])
+            # 提取属性
             set_attri[set_type] = utils.extract_attri(
                 self.set_clip_addr[set_type], param['mt'])
+            # 生成标签全部=0
             set_label[set_type] = utils.generate_label(
                 self.set_clip_addr[set_type], set_type, 'train')
 
         self.all_attri, self.all_label = None, None
         for set_type in set_name:
             if self.all_label is None:
+                # 把属性和标签传类属性
                 self.all_attri = set_attri[set_type]
                 self.all_label = set_label[set_type]
             else:
@@ -61,6 +66,7 @@ class train_dataset(Dataset):
 
     def __len__(self):
         return self.all_label.shape[0] * self.graph_num_per_clip
+        # 3000*186
 
     def __getitem__(self, idx):  # output one segment at a time
         clip_id = idx // self.graph_num_per_clip  # 1 // 186 = 0

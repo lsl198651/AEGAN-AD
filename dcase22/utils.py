@@ -5,6 +5,7 @@ import logging
 import datetime
 import random
 import torch
+import torchaudio.compliance.kaldi as ta_kaldi
 from tqdm import tqdm
 
 from maps import CLASS_ATTRI_ALL, CLASS_SEC_ATTRI, ATTRI_CODE
@@ -20,27 +21,30 @@ def get_clip_addr(clip_dir, ext='wav'):
     return clip_addr
 
 
-def generate_spec(clip_addr, fft_num, mel_bin, frame_hop, top_dir,
+def generate_spec(clip_addr, fft_num, mel_bin=128, frame_hop=512, top_dir=None,
                   mt, data_type, setn, rescale_ctl=True):
     all_clip_spec = None
 
     for set_type in clip_addr.keys():  # 'dev', 'eval'
         save_dir = os.path.join(top_dir, set_type, mt)
         os.makedirs(save_dir, exist_ok=True)
+        # 设置保存路径
         raw_data_file = os.path.join(save_dir,
                                      f'{data_type}_raw_mel_{mel_bin}_{fft_num}_{frame_hop}_1.npy')
 
         if not os.path.exists(raw_data_file):
             for idx in tqdm(range(len(clip_addr[set_type])), desc=f'{mt}-{setn}-{data_type}'):
-                clip, sr = librosa.load(
-                    clip_addr[set_type][idx], sr=None, mono=True)
-                mel = librosa.feature.melspectrogram(y=clip, sr=sr, n_fft=fft_num,
-                                                     hop_length=frame_hop, n_mels=mel_bin)
-                mel_db = librosa.power_to_db(mel, ref=1)  # log-mel, (128, 313)
+                # clip, sr = librosa.load(
+                #     clip_addr[set_type][idx], sr=None, mono=True)
+                # mel = librosa.feature.melspectrogram(y=clip, sr=sr, n_fft=fft_num,
+                #                                      hop_length=frame_hop, n_mels=mel_bin)
+                # mel_db = librosa.power_to_db(mel, ref=1)  # log-mel, (128, 313)
+                mel_db = ta_kaldi.fbank(
+                    clip_addr[set_type][idx], num_mel_bins=128, sample_frequency=16000, frame_length=25, frame_shift=10)
 
                 if idx == 0:
                     set_clip_spec = np.zeros(
-                        (len(clip_addr[set_type]) * mel_bin, mel.shape[1]), dtype=np.float32)
+                        (len(clip_addr[set_type]) * mel_bin, mel_db.shape[1]), dtype=np.float32)
                 set_clip_spec[idx * mel_bin:(idx + 1) * mel_bin, :] = mel_db
             np.save(raw_data_file, set_clip_spec)  # 保存logmel谱数据
         else:
@@ -94,17 +98,23 @@ def extract_attri(clip_addr, mt, eval_te_flag=False):
     # train：section_01_target_train_normal_0000_f-n_C.wav
     # test：section_01_target_test_normal_0029_f-n_C.wav
     # list of list, [sec, domain, att0, att1, att2, ...]
+    # 对每个wav创建空属性列表
     all_attri = [[] for _ in clip_addr]
     attri_idx = CLASS_SEC_ATTRI[mt]
     for cid, clip in enumerate(clip_addr):
+        # 提取出文件名file_name，不包含扩展名
         file_name = os.path.basename(
             clip)[:os.path.basename(clip).index('.wav')]
         segs = file_name.split('_')
+        # 从文件名提取出sec和domain
         sec, domain_note = int(segs[1][1]), segs[2]
+        # 属性source=0，target=1
         domain = 0 if domain_note == 'source' else 1
         # extraction of auxiliary scene labels, not used in training
+        # 向all_attri中添加sec属性
         all_attri[cid].append(sec)
         if not eval_te_flag:
+            # 向all_attri中添加domain属性
             all_attri[cid].append(domain)
             sec_attri = attri_idx[sec]
             for atn in CLASS_ATTRI_ALL[mt]:
