@@ -5,39 +5,71 @@ import logging
 import datetime
 import random
 import torch
+import torchaudio
 import torchaudio.compliance.kaldi as ta_kaldi
 from tqdm import tqdm
 
 from maps import CLASS_ATTRI_ALL, CLASS_SEC_ATTRI, ATTRI_CODE
 
 
-def get_clip_addr(clip_dir, ext='wav'):
-    clip_addr = []
-    for f in os.listdir(clip_dir):
-        clip_ext = f.split('.')[-1]
-        if clip_ext == ext:
-            clip_addr.append(os.path.join(clip_dir, f))
-    clip_addr = sorted(clip_addr)  # 0nor -> 0ano -> 1nor -> 1ano -> ...
-    return clip_addr
+def get_wav_data(flag: str):
+    npy_path_padded = r"D:\Shilong\murmur\01_dataset\04_newDataset\npyFile_padded\normalized\list_npy_files"
+# 读取npy文件
+    if flag == 'train':
+        absent_train_features = np.load(
+            npy_path_padded + r"\absent_train_features_norm.npy", allow_pickle=True
+        )
+        absent_train_label = np.load(
+            npy_path_padded + r"\absent_train_label_norm.npy", allow_pickle=True
+        )
+        # absent_train_features = torch.tensor(absent_train_features)
+        # all_mel_features = []
+        # for index in tqdm(range(len(absent_train_features))):
+        #     mel_features = ta_kaldi.fbank(absent_train_features[index:], num_mel_bins=128, sample_frequency=16000,
+        #                                   frame_length=25, frame_shift=10, window_type='hamming')
+        #     all_mel_features.append(mel_features)
+        # all_fbank_features = torch.stack(all_mel_features, dim=0)
+        return absent_train_features, absent_train_label
+    elif flag == 'test':
+        absent_test_features = np.load(
+            npy_path_padded + r"\absent_test_features_norm.npy", allow_pickle=True
+        )
+        present_test_features = np.load(
+            npy_path_padded + r"\present_test_features_norm.npy", allow_pickle=True
+        )
+        absent_test_label = np.load(
+            npy_path_padded + r"\absent_test_label_norm.npy", allow_pickle=True
+        )
+        present_test_label = np.load(
+            npy_path_padded + r"\present_test_label_norm.npy", allow_pickle=True
+        )
+        test_feature = np.vstack((absent_test_features, present_test_features))
+        test_label = np.hstack((absent_test_label, present_test_label))
+        return test_feature, test_label
+    else:
+        raise ValueError("flag must be 'train' or 'test'")
 
 
 def generate_spec(clip_addr,  top_dir=None):
     all_clip_spec = None
+    top_dir = r'D:\Shilong\murmur\01_dataset\04_newDataset\trainset'
 
     for set_type in clip_addr.keys():  # 'dev', 'eval'
         save_dir = os.path.join(top_dir, set_type)
         os.makedirs(save_dir, exist_ok=True)
         # 设置保存路径
         #  mel_bin=128, frame_hop=512,fft_num=2048
-        mel_bin=128
-        raw_data_file = os.path.join(save_dir,'raw_logmel_128bin_2048fft_512_1.npy')
+        mel_bin = 128
+        raw_data_file = os.path.join(
+            save_dir, 'raw_logmel_128bin_2048fft_512_1.npy')
 
         if not os.path.exists(raw_data_file):
             for idx in tqdm(range(len(clip_addr[set_type]))):
+                wavform = torch.tensor(clip_addr[set_type][idx])
                 # 读取wav文件，提取logmel谱fbank
                 fbank = ta_kaldi.fbank(
-                    clip_addr[set_type][idx], num_mel_bins=128, sample_frequency=16000, frame_length=25, frame_shift=10)
-
+                    wavform.long(), num_mel_bins=128, sample_frequency=16000, frame_length=25, frame_shift=10, window_type='hamming')
+                fbank = fbank.numpy().T  # (128,22)
                 if idx == 0:
                     # 创建全0矩阵，(3000*128)*313
                     set_clip_spec = np.zeros(
@@ -52,17 +84,18 @@ def generate_spec(clip_addr,  top_dir=None):
             all_clip_spec = np.vstack((all_clip_spec, set_clip_spec))
             # 把所有logmel谱按照纵向排列堆叠，（3000*128）*313 = all_clip_spec
     # 求出长度为313的logmel谱，每个logmel谱的长度为3000*128
-    frame_num_per_clip = all_clip_spec.shape[-1]# 313
+    frame_num_per_clip = all_clip_spec.shape[-1]  # 313
     max_v = np.max(all_clip_spec)
     min_v = np.min(all_clip_spec)
     print('fbank scale max: {}, min: {}'.format(max_v, min_v))
 
     fbank_mean = (max_v + min_v) / 2  # 均值
     scale = (max_v - min_v) / 2  # 范围
-    fbank_std= np.std(all_clip_spec)
+    fbank_std = np.std(all_clip_spec)
     all_clip_spec = (all_clip_spec - fbank_mean) / scale  # 去直流，归一化
     all_clip_spec = (all_clip_spec - fbank_mean) / fbank_std  # 去直流，标准化
-    all_clip_spec = all_clip_spec.reshape(-1, mel_bin, frame_num_per_clip)  # reshape fbank 特征 
+    # reshape fbank 特征
+    all_clip_spec = all_clip_spec.reshape(-1, mel_bin, frame_num_per_clip)
     return all_clip_spec
 
 
@@ -174,23 +207,20 @@ def config_summary(param):
 
 
 def get_logger(param):
-    os.makedirs(os.path.join(param['log_dir'], param['mt']), exist_ok=True)
-    log_name = './{logdir}/{mt}/train.log'.format(
-        logdir=param['log_dir'],
-        mt=param['mt'])
-
+    os.makedirs(os.path.join('./log'), exist_ok=True)
+    log_name = '././log/train.log'
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     sh = logging.StreamHandler()
-    fh = logging.FileHandler(log_name, mode='a' if param['resume'] else 'w')
+    # fh = logging.FileHandler(log_name, mode='a' if param['resume'] else 'w')
     sh_form = logging.Formatter('%(message)s')
-    fh_form = logging.Formatter('%(levelname)s - %(message)s')
+    # fh_form = logging.Formatter('%(levelname)s - %(message)s')
     sh.setLevel(logging.INFO)
-    fh.setLevel(logging.DEBUG)
+    # fh.setLevel(logging.DEBUG)
     sh.setFormatter(sh_form)
-    fh.setFormatter(fh_form)
+    # fh.setFormatter(fh_form)
     logger.addHandler(sh)
-    logger.addHandler(fh)
+    # logger.addHandler(fh)
     logger.info('Train starts at: {}'.format(
         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     return logger

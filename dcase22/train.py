@@ -88,7 +88,7 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     MSE = torch.nn.MSELoss()
     d2g_loss = D2GLoss(param['train']['wgan']['match_item'])
 
-    for i, (mel, _, _) in enumerate(train_loader):
+    for i, (mel, _) in enumerate(train_loader):
         mel = mel.to(device)
         recon = netG(mel)
         pred_real, _ = netD(mel)
@@ -161,7 +161,7 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
             netD, netG, train_loader, optimD, optimG, device, d2g_eff)
         # 写到这了
         train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
-        
+
         hmean, metric = test(
             netD, netG, test_loader['dev_test'], train_embs, logger, device)
 
@@ -169,8 +169,10 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
             best_hmean = hmean[3]
             bestD = copy.deepcopy(netD.state_dict())
             bestG = copy.deepcopy(netG.state_dict())
-        logger.info(f'epoch {epoch}: [recon: {aver_loss["recon"]:.4e}] [d2g: {aver_loss["d2g"]:.4e}] [gloss: { aver_loss["gloss"]}] [time: {time.time() - start:.0f}s]')
-        logger.info(f'=======> [AUC_s: {hmean[0]:.4f}] [AUC_t: {hmean[1]:.4f}] [pAUC: {hmean[2]:.4f}] [hmean: {hmean[3]:.4f}] [metric: {metric}] [best: {best_hmean:.4f}]')
+        logger.info(
+            f'epoch {epoch}: [recon: {aver_loss["recon"]:.4e}] [d2g: {aver_loss["d2g"]:.4e}] [gloss: { aver_loss["gloss"]}] [time: {time.time() - start:.0f}s]')
+        logger.info(
+            f'=======> [AUC_s: {hmean[0]:.4f}] [AUC_t: {hmean[1]:.4f}] [pAUC: {hmean[2]:.4f}] [hmean: {hmean[3]:.4f}] [metric: {metric}] [best: {best_hmean:.4f}]')
 # 保存模型
     torch.save({'netD': bestD, 'netG': bestG,
                'best_hmean': best_hmean}, param['model_pth'])
@@ -277,29 +279,29 @@ def test(netD, netG, test_loader, train_embs, logger, device):
     return hmean_all[best_idx, :], best_metric
 
 
-def main(logger,args):
+def main(logger, args):
+
+    train_features, train_labels = utils.get_wav_data('train')
+    test_features, test_labels = utils.get_wav_data('test')
     # create datasets and dataloaders
-    train_data = train_dataset(param,args)
     # all_attri去除重复数据看有哪些sec选项
     # param['all_sec'] = train_data.get_sec()
-    train_loader = DataLoader(train_data,
+    train_loader = DataLoader(train_dataset(features=train_features, targets=train_labels),
                               batch_size=args.batch_size,
                               shuffle=True,
                               drop_last=True
                               )
-    test_loader = {}
-    dev_test_set = test_dataset(param, 'dev', 'test')
-    test_loader['dev_test'] = DataLoader(dev_test_set,
-                                         batch_size=1,
-                                         shuffle=False
-                                         )
+    test_loader = DataLoader(test_dataset(features=test_features, targets=test_labels),
+                             batch_size=1,
+                             shuffle=True
+                             )
 
     # create two networks and their optimizers
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     netD = Discriminator(param)
     netG = Generator(param)
     # resume: store_true
-    if args.resume==True:
+    if args.resume == True:
         pth_file = torch.load(utils.get_model_pth(
             param), map_location=torch.device('cpu'))
         netD_dict, netG_dict, best_hmean = pth_file['netD'], pth_file['netG'], pth_file['best_hmean']
@@ -311,8 +313,10 @@ def main(logger,args):
         best_hmean = None
     netD.to(device)
     netG.to(device)
-    optimD = torch.optim.AdamW(netD.parameters(),lr=args.learning_rate,betas=args.betas)
-    optimG = torch.optim.AdamW(netG.parameters(),lr=args.learning_rate,betas=args.betas)
+    optimD = torch.optim.AdamW(
+        netD.parameters(), lr=args.learning_rate, betas=args.betas)
+    optimG = torch.optim.AdamW(
+        netG.parameters(), lr=args.learning_rate, betas=args.betas)
 
     train(netD, netG, train_loader, test_loader,
           optimD, optimG, logger, device, best_hmean)
@@ -325,27 +329,29 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=111)
     parser.add_argument('--epoch_num', type=int, default=5)
     parser.add_argument('--trainset', type=str, default='train')
-    parser.add_argument('--set_type', type=str, default='dev',choices=['dev', 'eval'])
-    parser.add_argument('--data_type', type=str, default='train',choices=['train', 'test'])
+    parser.add_argument('--set_type', type=str,
+                        default='dev', choices=['dev', 'eval'])
+    parser.add_argument('--data_type', type=str,
+                        default='train', choices=['train', 'test'])
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--resume', type=bool, default=False)
     parser.add_argument('--learning_rate', type=float, default=.0002)
-    parser.add_argument('--betas', type=str, default=(0.5,0.999))
+    parser.add_argument('--betas', type=str, default=(0.5, 0.999))
     parser.add_argument('--lambda_gp', type=int, default=10)
 
     args = parser.parse_args()
 
     # trivial settings
     utils.set_seed(args.seed)
-    param['model_pth'] = utils.get_model_pth(param)
+    # param['model_pth'] = utils.get_model_pth(param)
     for dir in [param['model_dir'], param['spec_dir'], param['log_dir']]:
         os.makedirs(dir, exist_ok=True)
 
     # set logger
-    logger = utils.get_logger(param)  
+    logger = utils.get_logger(param)
     logger.info('============== TRAIN CONFIG SUMMARY ==============')
     logger.info(f'Seed: {args.seed}')
-    logger.info(f'Epoch: {args.epoch}')
+    logger.info(f'Epoch: {args.epoch_num}')
     summary = utils.config_summary(param)
     for key in summary.keys():
         message = '{}: '.format(key)
@@ -353,4 +359,4 @@ if __name__ == '__main__':
             message += '[{}: {}] '.format(k, summary[key][k])
         logger.info(message)
 
-    main(logger,args)
+    main(logger, args)

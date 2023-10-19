@@ -66,7 +66,8 @@ class DCDecoder(nn.Module):
         main.append(ActLayer(act))
 
         while csize < isize // 2:
-            main.append(nn.ConvTranspose2d(cngf, cngf // 2, 4, 2, 1, bias=False))
+            main.append(nn.ConvTranspose2d(
+                cngf, cngf // 2, 4, 2, 1, bias=False))
             cngf = cngf // 2
             csize = csize * 2
             main.append(NormLayer(normalize, cngf, csize))
@@ -84,7 +85,7 @@ class DCDecoder(nn.Module):
 class Generator(nn.Module):
     def __init__(self, param):
         super(Generator, self).__init__()
-        fn = False if param['mt'] in ['bearing', 'fan', 'ToyCar'] else True
+        fn = True
         self.Encoder = DCEncoder(isize=param['net']['isize'],
                                  nz=param['net']['nz'],
                                  ndf=param['net']['ndf'],
@@ -109,11 +110,13 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, param):
         super(Discriminator, self).__init__()
-        ndf, isize = param['net']['ndf'], param['net']['isize']
-        act, normalize = param['net']['act'][0], param['net']['normalize']['d']
-
+        ndf = 256
+        isize = 128
+        act = 'leakyrelu'
+        normalize = 'ln'
+        level = 0
+        in_chan = 1
         self.main = nn.ModuleList()
-        level, in_chan = 0, 1
         init_layer = nn.Sequential(nn.Conv2d(in_chan, ndf, 4, 2, 1, bias=False),
                                    NormLayer(normalize, ndf, isize // 2),
                                    ActLayer(act))
