@@ -22,11 +22,11 @@ def NormLayer(normalize, chan, reso):
 
 
 class DCEncoder(nn.Module):
-    def __init__(self, isize, nz, ndf, act, normalize, first_norm=True):
+    def __init__(self, isize=128, nz=256, ndf=32, act='leakyrelu', normalize="ln", first_norm=True):
         # 1*128*128 -> 32*64*64 -> 64*32*32 -> 128*16*16 -> 256*8*8 -> 512*4*4 -> 256*1*1
         super(DCEncoder, self).__init__()
         main = []
-        main.append(nn.Conv2d(1, ndf, 4, 2, 1, bias=False))
+        main.append(nn.Conv2d(1, ndf, (2, 4), 2, 1, bias=False))
         if first_norm:
             main.append(NormLayer(normalize, ndf, isize // 2))
         main.append(ActLayer(act))
@@ -46,6 +46,7 @@ class DCEncoder(nn.Module):
         self.main = nn.Sequential(*main)
 
     def forward(self, x):
+        x = x.unsqueeze(1)
         z = self.main(x)
         return z
 
@@ -86,17 +87,12 @@ class Generator(nn.Module):
     def __init__(self, param):
         super(Generator, self).__init__()
         fn = True
-        self.Encoder = DCEncoder(isize=param['net']['isize'],
-                                 nz=param['net']['nz'],
-                                 ndf=param['net']['ndf'],
-                                 act=param['net']['act'][0],
-                                 normalize=param['net']['normalize']['g'],
-                                 first_norm=fn)
-        self.Decoder = DCDecoder(isize=param['net']['isize'],
-                                 nz=param['net']['nz'],
-                                 ngf=param['net']['ngf'],
-                                 act=param['net']['act'][1],
-                                 normalize=param['net']['normalize']['g'])
+        self.Encoder = DCEncoder()
+        self.Decoder = DCDecoder(isize=128,
+                                 nz=256,
+                                 ngf=32,
+                                 act='relu',
+                                 normalize="ln")
 
     def forward(self, x, outz=False):
         z = self.Encoder(x)

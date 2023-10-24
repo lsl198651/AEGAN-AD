@@ -333,7 +333,7 @@ if __name__ == '__main__':
                         default='dev', choices=['dev', 'eval'])
     parser.add_argument('--data_type', type=str,
                         default='train', choices=['train', 'test'])
-    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--batch_size', type=int, default=30)
     parser.add_argument('--resume', type=bool, default=False)
     parser.add_argument('--learning_rate', type=float, default=.0002)
     parser.add_argument('--betas', type=str, default=(0.5, 0.999))
