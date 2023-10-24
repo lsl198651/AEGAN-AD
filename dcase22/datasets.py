@@ -20,11 +20,11 @@ class train_dataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):  # output one segment at a time
-        dataitem = self.data[idx:]
+        dataitem = self.data[idx]
         targetitem = self.traget[idx]
-        logmel = ta_kaldi.fbank(dataitem, num_mel_bins=128, sample_frequency=16000,
-                                frame_length=25, frame_shift=10, window_type='hamming')
-        return logmel, targetitem
+        # logmel = ta_kaldi.fbank(dataitem, num_mel_bins=128, sample_frequency=16000,
+        #                         frame_length=25, frame_shift=10)
+        return dataitem, targetitem
 
 
 class test_dataset(Dataset):

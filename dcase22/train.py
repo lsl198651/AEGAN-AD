@@ -17,7 +17,7 @@ import utils
 import emb_distance as EDIS
 from net import Generator, Discriminator
 from datasets import train_dataset, test_dataset
-
+import torchaudio.compliance.kaldi as ta_kaldi
 
 with open(r'D:\Shilong\murmur\00_Code\LM\AEGAN-AD\dcase22\config.yaml') as fp:
     param = yaml.safe_load(fp)
@@ -80,6 +80,12 @@ def compute_gradient_penalty(D, real_samples, fake_samples, device):
     return gradient_penalty
 
 
+def wav2mel(wav):
+    fbank = ta_kaldi.fbank(wav, num_mel_bins=128, sample_frequency=16000,
+                           frame_length=25, frame_shift=10)
+    return fbank
+
+
 def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     netD.train()
     netG.train()
@@ -88,8 +94,9 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     MSE = torch.nn.MSELoss()
     d2g_loss = D2GLoss(param['train']['wgan']['match_item'])
 
-    for i, (mel, _) in enumerate(train_loader):
-        mel = mel.to(device)
+    for i, (wav, _) in enumerate(train_loader):
+        wav = wav.to(device)
+        mel = wav2mel(wav)
         recon = netG(mel)
         pred_real, _ = netD(mel)
         pred_fake, _ = netD(recon.detach())
