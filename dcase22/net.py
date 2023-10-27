@@ -27,7 +27,7 @@ class DCEncoder(nn.Module):
         super(DCEncoder, self).__init__()
         main = []
         main.append(nn.Conv2d(in_channels=1, out_channels=ndf,
-                    kernel_size=4, stride=2, padding=(47, 1), bias=False))
+                    kernel_size=4, stride=2, padding=1, bias=False))
         if first_norm:
             main.append(NormLayer(normalize, ndf, isize // 2))
         main.append(ActLayer(act))
@@ -47,7 +47,6 @@ class DCEncoder(nn.Module):
         self.main = nn.Sequential(*main)
 
     def forward(self, x):
-        x = x.unsqueeze(0)
         z = self.main(x)
         return z
 
@@ -114,7 +113,7 @@ class Discriminator(nn.Module):
         level = 0
         in_chan = 1
         self.main = nn.ModuleList()
-        init_layer = nn.Sequential(nn.Conv2d(in_channels=in_chan, out_channels=ndf, kernel_size=4, stride=2, padding=(47, 1), bias=False),
+        init_layer = nn.Sequential(nn.Conv2d(in_channels=in_chan, out_channels=ndf, kernel_size=4, stride=2, padding=1, bias=False),
                                    NormLayer(normalize, ndf, isize // 2),
                                    ActLayer(act))
         level, csize, cndf = 1, isize // 2, ndf
@@ -137,7 +136,6 @@ class Discriminator(nn.Module):
                                           nn.Linear(cndf, 1))
 
     def forward(self, x):
-        x = x.unsqueeze(0)
         for module in self.main:
             x = module(x)
         feat = self.feat_extract_layer(x)

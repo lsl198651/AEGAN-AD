@@ -18,6 +18,7 @@ import emb_distance as EDIS
 from net import Generator, Discriminator
 from datasets import train_dataset, test_dataset
 import torchaudio.compliance.kaldi as ta_kaldi
+import torch.nn as nn
 
 with open(r'D:\Shilong\murmur\00_Code\LM\AEGAN-AD\dcase22\config.yaml') as fp:
     param = yaml.safe_load(fp)
@@ -60,6 +61,7 @@ def compute_gradient_penalty(D, real_samples, fake_samples, device):
     # Random weight term for interpolation between real and fake samples
     alpha = torch.rand(
         (real_samples.shape[0], 1, 1, 1), dtype=torch.float32, device=device)
+    alpha = alpha.expand_as(real_samples)
     # Get random interpolation between real and fake samples
     interpolates = (alpha * real_samples + ((1 - alpha)
                     * fake_samples)).requires_grad_(True)
@@ -97,13 +99,16 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     for i, (wav, _) in enumerate(train_loader):
         wav = wav.to(device)
         mel = wav2mel(wav)
+        mel = mel.transpose(0, 1)
+        pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
+        mel = pad(mel).unsqueeze(0)
         recon = netG(mel)
         pred_real, _ = netD(mel)
         pred_fake, _ = netD(recon.detach())
-        gradient_penalty = compute_gradient_penalty(
-            netD, mel.data, recon.data, device)
+        # gradient_penalty = compute_gradient_penalty(
+        #     netD, mel.data, recon.data, device)
         d_loss = - torch.mean(pred_real) + \
-            torch.mean(pred_fake) + lambda_gp * gradient_penalty
+            torch.mean(pred_fake)  # + lambda_gp  # * gradient_penalty
         optimD.zero_grad()
         d_loss.backward()
         optimD.step()
