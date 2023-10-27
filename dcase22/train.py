@@ -141,11 +141,15 @@ def get_d_aver_emb(netD, train_set, device):
         extract embeddings of the train set via the gdconv layer of the discriminator
     '''
     netD.eval()
-    train_embs = {sec: {'source': [], 'target': []}
-                  for sec in param['all_sec']}
+    # train_embs = {sec: {'source': [], 'target': []}
+    #               for sec in param['all_sec']}
     with torch.no_grad():
-        for idx in range(train_set.get_clip_num()):
-            mel, attri, _ = train_set.get_clip_data(idx)
+        for idx in range(train_set.shape[0]):
+            wav = train_set.data[idx:]
+            mel = wav2mel(wav)
+            mel = mel.transpose(0, 1)
+            pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
+            mel = pad(mel).unsqueeze(0)
             mel = torch.from_numpy(mel).to(device)
             _, feat_real = netD(mel)
             feat_real = feat_real.squeeze().mean(dim=0).cpu().numpy()
