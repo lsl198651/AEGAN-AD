@@ -27,7 +27,7 @@ train:
   lrG: 0.0002
   beta1: 0.5
   epoch: 60
-  batch_size: 32
+  batch_size: 16
   wgan:
     feat_match_eff: 0.1
     match_item: { "mu": 1 } # 'mu': 1, 'sigma': 1
