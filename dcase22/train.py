@@ -141,16 +141,16 @@ def get_d_aver_emb(netD, train_set, device):
         extract embeddings of the train set via the gdconv layer of the discriminator
     '''
     netD.eval()
-    # train_embs = {sec: {'source': [], 'target': []}
-    #               for sec in param['all_sec']}
+    train_embs = {sec: {'source': [], 'target': []}
+                  for sec in param['all_sec']}
     with torch.no_grad():
-        for idx in range(train_set.shape[0]):
+        for idx in range(train_set.data.shape[0]):
             wav = train_set.data[idx:]
             mel = wav2mel(wav)
             mel = mel.transpose(0, 1)
             pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
             mel = pad(mel).unsqueeze(0)
-            mel = torch.from_numpy(mel).to(device)
+            mel = torch.tensor(mel).to(device)
             _, feat_real = netD(mel)
             feat_real = feat_real.squeeze().mean(dim=0).cpu().numpy()
             dom = 'source' if attri[0][1] == 0 else 'target'
@@ -179,16 +179,18 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
         train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
 
         hmean, metric = test(
-            netD, netG, test_loader['dev_test'], train_embs, logger, device)
+            netD, netG, test_loader, train_embs, logger, device)
 
         if best_hmean is None or best_hmean < hmean[3]:
             best_hmean = hmean[3]
             bestD = copy.deepcopy(netD.state_dict())
             bestG = copy.deepcopy(netG.state_dict())
         logger.info(
-            f'epoch {epoch}: [recon: {aver_loss["recon"]:.4e}] [d2g: {aver_loss["d2g"]:.4e}] [gloss: { aver_loss["gloss"]}] [time: {time.time() - start:.0f}s]')
+            f'epoch {epoch}: [recon: {aver_loss["recon"]:.4e}] [d2g: {aver_loss["d2g"]:.4e}] 
+            [gloss: { aver_loss["gloss"]}] [time: {time.time() - start:.0f}s]')
         logger.info(
-            f'=======> [AUC_s: {hmean[0]:.4f}] [AUC_t: {hmean[1]:.4f}] [pAUC: {hmean[2]:.4f}] [hmean: {hmean[3]:.4f}] [metric: {metric}] [best: {best_hmean:.4f}]')
+            f'=======> [AUC_s: {hmean[0]:.4f}] [AUC_t: {hmean[1]:.4f}] [pAUC: {hmean[2]:.4f}] 
+            [hmean: {hmean[3]:.4f}] [metric: {metric}] [best: {best_hmean:.4f}]')
 # 保存模型
     torch.save({'netD': bestD, 'netG': bestG,
                'best_hmean': best_hmean}, param['model_pth'])
@@ -200,7 +202,7 @@ def test(netD, netG, test_loader, train_embs, logger, device):
         calculates anomaly score and aucs
         auc metrics are in accordance with the official implementation
     '''
-    # detect_domain, score_type, score_comb= ('x', 'z'), ('2', '1'), ('sum', 'min', 'max')
+    # # detect_domain, score_type, score_comb= ('x', 'z'), ('2', '1'), ('sum', 'min', 'max')
     D_metric = ['D_maha', 'D_knn', 'D_lof', 'D_cos']
     G_metric = ['G_x_2_sum', 'G_x_2_min', 'G_x_2_max', 'G_x_1_sum', 'G_x_1_min', 'G_x_1_max',
                 'G_z_2_sum', 'G_z_2_min', 'G_z_2_max', 'G_z_1_sum', 'G_z_1_min', 'G_z_1_max',
@@ -208,18 +210,19 @@ def test(netD, netG, test_loader, train_embs, logger, device):
     all_metric = D_metric + G_metric
     edetect = EDIS.EmbeddingDetector(train_embs)
     edfunc = {'maha': edetect.maha_score, 'knn': edetect.knn_score,
-              'lof': edetect.lof_score, 'cos': edetect.cos_score}
+                'lof': edetect.lof_score, 'cos': edetect.cos_score}
     metric2id = {m: mid for m, mid in zip(all_metric, range(len(all_metric)))}
     id2metric = {v: k for k, v in metric2id.items()}
 
     def specfunc(x):
         return x.sum(axis=tuple(list(range(1, x.ndim))))
+    
     stfunc = {'2': lambda x, y: (x - y).pow(2),
-              '1': lambda x, y: (x - y).abs(),
-              'cos': lambda x, y: 1 - F.cosine_similarity(x, y)}
+                '1': lambda x, y: (x - y).abs(),
+                'cos': lambda x, y: 1 - F.cosine_similarity(x, y)}
     scfunc = {'sum': lambda x: x.sum().item(),
-              'min': lambda x: x.min().item(),
-              'max': lambda x: x.max().item()}
+                'min': lambda x: x.min().item(),
+                'max': lambda x: x.max().item()}
 
     netD.eval()
     netG.eval()
@@ -227,7 +230,7 @@ def test(netD, netG, test_loader, train_embs, logger, device):
     y_true_all, y_score_all = [{} for _ in metric2id.keys()], [
         {} for _ in metric2id.keys()]
     with torch.no_grad():
-        for mel, attri, label in test_loader:  # mel: 1*186*1*128*128
+        for mel,  label in test_loader.dataset:  # mel: 1*186*1*128*128
             mel = mel.squeeze(0).to(device)
             _, feat_t = netD(mel)
             recon = netG(mel)
