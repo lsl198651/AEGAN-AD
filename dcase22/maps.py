@@ -1,3 +1,7 @@
+# m-n(machine-noise)_<machine_index>
+# f-n(factory-noise)_<factory_noise_index>
+# n-lv(noise-level)_<noise_level_index>
+# 可以把收缩舒张期类型做进去
 CLASS_ATTRI_ALL = {'fan': ['m-n', 'f-n', 'n-lv'],
                    'gearbox': ['volt', 'wt', 'id'],
                    'bearing': ['vel', 'loc', 'f-n'],

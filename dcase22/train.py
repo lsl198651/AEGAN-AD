@@ -185,12 +185,11 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
             best_hmean = hmean[3]
             bestD = copy.deepcopy(netD.state_dict())
             bestG = copy.deepcopy(netG.state_dict())
-        logger.info(
-            f'epoch {epoch}: [recon: {aver_loss["recon"]:.4e}] [d2g: {aver_loss["d2g"]:.4e}] 
-            [gloss: { aver_loss["gloss"]}] [time: {time.time() - start:.0f}s]')
-        logger.info(
-            f'=======> [AUC_s: {hmean[0]:.4f}] [AUC_t: {hmean[1]:.4f}] [pAUC: {hmean[2]:.4f}] 
-            [hmean: {hmean[3]:.4f}] [metric: {metric}] [best: {best_hmean:.4f}]')
+        logger.info('epoch {}: [recon: {:.4e}] [d2g: {:.4e}] [gloss: {}] [time: {:.0f}s]'.format(
+                    i, aver_loss['recon'], aver_loss['d2g'], aver_loss['gloss'], time.time() - start))
+        logger.info('=======> [AUC_s: {:.4f}] [AUC_t: {:.4f}] [pAUC: {:.4f}] [hmean: {:.4f}] [metric: {}] [best: {:.4f}]'.format(
+                    hmean[0], hmean[1], hmean[2], hmean[3], metric, best_hmean))
+
 # 保存模型
     torch.save({'netD': bestD, 'netG': bestG,
                'best_hmean': best_hmean}, param['model_pth'])
@@ -210,19 +209,19 @@ def test(netD, netG, test_loader, train_embs, logger, device):
     all_metric = D_metric + G_metric
     edetect = EDIS.EmbeddingDetector(train_embs)
     edfunc = {'maha': edetect.maha_score, 'knn': edetect.knn_score,
-                'lof': edetect.lof_score, 'cos': edetect.cos_score}
+              'lof': edetect.lof_score, 'cos': edetect.cos_score}
     metric2id = {m: mid for m, mid in zip(all_metric, range(len(all_metric)))}
     id2metric = {v: k for k, v in metric2id.items()}
 
     def specfunc(x):
         return x.sum(axis=tuple(list(range(1, x.ndim))))
-    
+
     stfunc = {'2': lambda x, y: (x - y).pow(2),
-                '1': lambda x, y: (x - y).abs(),
-                'cos': lambda x, y: 1 - F.cosine_similarity(x, y)}
+              '1': lambda x, y: (x - y).abs(),
+              'cos': lambda x, y: 1 - F.cosine_similarity(x, y)}
     scfunc = {'sum': lambda x: x.sum().item(),
-                'min': lambda x: x.min().item(),
-                'max': lambda x: x.max().item()}
+              'min': lambda x: x.min().item(),
+              'max': lambda x: x.max().item()}
 
     netD.eval()
     netG.eval()
