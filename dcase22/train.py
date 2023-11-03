@@ -108,7 +108,7 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
         # gradient_penalty = compute_gradient_penalty(
         #     netD, mel.data, recon.data, device)
         d_loss = - torch.mean(pred_real) + \
-            torch.mean(pred_fake)  # + lambda_gp  # * gradient_penalty
+            torch.mean(pred_fake)  # + lambda_gp  * gradient_penalty
         optimD.zero_grad()
         d_loss.backward()
         optimD.step()
@@ -136,30 +136,30 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     return netD, netG, aver_loss
 
 
-def get_d_aver_emb(netD, train_set, device):
-    '''
-        extract embeddings of the train set via the gdconv layer of the discriminator
-    '''
-    netD.eval()
-    train_embs = {sec: {'source': [], 'target': []}
-                  for sec in param['all_sec']}
-    with torch.no_grad():
-        for idx in range(train_set.data.shape[0]):
-            wav = train_set.data[idx:]
-            mel = wav2mel(wav)
-            mel = mel.transpose(0, 1)
-            pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
-            mel = pad(mel).unsqueeze(0)
-            mel = torch.tensor(mel).to(device)
-            _, feat_real = netD(mel)
-            feat_real = feat_real.squeeze().mean(dim=0).cpu().numpy()
-            dom = 'source' if attri[0][1] == 0 else 'target'
-            train_embs[attri[0][0]][dom].append(feat_real)
-    for sec in train_embs.keys():
-        for dom in ['source', 'target']:
-            train_embs[sec][dom] = np.array(
-                train_embs[sec][dom], dtype=np.float32)
-    return train_embs
+# def get_d_aver_emb(netD, train_set, device):
+#     '''
+#         extract embeddings of the train set via the gdconv layer of the discriminator
+#     '''
+#     netD.eval()
+#     train_embs = {sec: {'source': [], 'target': []}
+#                   for sec in param['all_sec']}
+#     with torch.no_grad():
+#         for idx in range(train_set.data.shape[0]):
+#             wav = train_set.data[idx:]
+#             mel = wav2mel(wav)
+#             mel = mel.transpose(0, 1)
+#             pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
+#             mel = pad(mel).unsqueeze(0)
+#             mel = torch.tensor(mel).to(device)
+#             _, feat_real = netD(mel)
+#             feat_real = feat_real.squeeze().mean(dim=0).cpu().numpy()
+#             dom = 'source' if attri[0][1] == 0 else 'target'
+#             train_embs[attri[0][0]][dom].append(feat_real)
+#     for sec in train_embs.keys():
+#         for dom in ['source', 'target']:
+#             train_embs[sec][dom] = np.array(
+#                 train_embs[sec][dom], dtype=np.float32)
+#     return train_embs
 
 
 def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device, best_hmean=None):
@@ -176,17 +176,17 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
         netD, netG, aver_loss = train_one_epoch(
             netD, netG, train_loader, optimD, optimG, device, d2g_eff)
         # 写到这了
-        train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
+        # train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
 
         hmean, metric = test(
-            netD, netG, test_loader, train_embs, logger, device)
+            netD, netG, test_loader, logger, device)
 
         if best_hmean is None or best_hmean < hmean[3]:
             best_hmean = hmean[3]
             bestD = copy.deepcopy(netD.state_dict())
             bestG = copy.deepcopy(netG.state_dict())
         logger.info('epoch {}: [recon: {:.4e}] [d2g: {:.4e}] [gloss: {}] [time: {:.0f}s]'.format(
-                    i, aver_loss['recon'], aver_loss['d2g'], aver_loss['gloss'], time.time() - start))
+                    epoch, aver_loss['recon'], aver_loss['d2g'], aver_loss['gloss'], time.time() - start))
         logger.info('=======> [AUC_s: {:.4f}] [AUC_t: {:.4f}] [pAUC: {:.4f}] [hmean: {:.4f}] [metric: {}] [best: {:.4f}]'.format(
                     hmean[0], hmean[1], hmean[2], hmean[3], metric, best_hmean))
 
@@ -196,22 +196,22 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
 
 
 # @profile
-def test(netD, netG, test_loader, train_embs, logger, device):
+def test(netD, netG, test_loader,  logger, device):
     '''
         calculates anomaly score and aucs
         auc metrics are in accordance with the official implementation
     '''
     # # detect_domain, score_type, score_comb= ('x', 'z'), ('2', '1'), ('sum', 'min', 'max')
-    D_metric = ['D_maha', 'D_knn', 'D_lof', 'D_cos']
-    G_metric = ['G_x_2_sum', 'G_x_2_min', 'G_x_2_max', 'G_x_1_sum', 'G_x_1_min', 'G_x_1_max',
-                'G_z_2_sum', 'G_z_2_min', 'G_z_2_max', 'G_z_1_sum', 'G_z_1_min', 'G_z_1_max',
-                'G_z_cos_sum', 'G_z_cos_min', 'G_z_cos_max']
-    all_metric = D_metric + G_metric
-    edetect = EDIS.EmbeddingDetector(train_embs)
-    edfunc = {'maha': edetect.maha_score, 'knn': edetect.knn_score,
-              'lof': edetect.lof_score, 'cos': edetect.cos_score}
-    metric2id = {m: mid for m, mid in zip(all_metric, range(len(all_metric)))}
-    id2metric = {v: k for k, v in metric2id.items()}
+    # D_metric = ['D_maha', 'D_knn', 'D_lof', 'D_cos']
+    # G_metric = ['G_x_2_sum', 'G_x_2_min', 'G_x_2_max', 'G_x_1_sum', 'G_x_1_min', 'G_x_1_max',
+    #             'G_z_2_sum', 'G_z_2_min', 'G_z_2_max', 'G_z_1_sum', 'G_z_1_min', 'G_z_1_max',
+    #             'G_z_cos_sum', 'G_z_cos_min', 'G_z_cos_max']
+    # all_metric = D_metric + G_metric
+    # edetect = EDIS.EmbeddingDetector(train_embs)
+    # edfunc = {'maha': edetect.maha_score, 'knn': edetect.knn_score,
+    #           'lof': edetect.lof_score, 'cos': edetect.cos_score}
+    # metric2id = {m: mid for m, mid in zip(all_metric, range(len(all_metric)))}
+    # id2metric = {v: k for k, v in metric2id.items()}
 
     def specfunc(x):
         return x.sum(axis=tuple(list(range(1, x.ndim))))
@@ -226,8 +226,8 @@ def test(netD, netG, test_loader, train_embs, logger, device):
     netD.eval()
     netG.eval()
     # {sec: {'source': [], 'target': []}}
-    y_true_all, y_score_all = [{} for _ in metric2id.keys()], [
-        {} for _ in metric2id.keys()]
+    # y_true_all, y_score_all = [{} for _ in metric2id.keys()], [
+    #     {} for _ in metric2id.keys()]
     with torch.no_grad():
         for mel,  label in test_loader.dataset:  # mel: 1*186*1*128*128
             mel = mel.squeeze(0).to(device)
@@ -242,23 +242,23 @@ def test(netD, netG, test_loader, train_embs, logger, device):
             ), attri[0][1].item(), label[0][0]
             domain = 'source' if domain == 0 else 'target'
 
-            for idx, metric in id2metric.items():
-                wn = metric.split('_')[0]
-                if wn == 'D':
-                    dname = metric.split('_')[1]
-                    score = edfunc[dname](feat_t, sec)
+            # for idx, metric in id2metric.items():
+            #     wn = metric.split('_')[0]
+            #     if wn == 'D':
+            #         dname = metric.split('_')[1]
+            #         score = edfunc[dname](feat_t, sec)
 
-                elif wn == 'G':
-                    dd, st, sc = tuple(metric.split('_')[1:])
-                    ori = mel if dd == 'x' else melz
-                    hat = recon if dd == 'x' else reconz
-                    score = scfunc[sc](specfunc(stfunc[st](hat, ori)))
+            #     elif wn == 'G':
+            #         dd, st, sc = tuple(metric.split('_')[1:])
+            #         ori = mel if dd == 'x' else melz
+            #         hat = recon if dd == 'x' else reconz
+            #         score = scfunc[sc](specfunc(stfunc[st](hat, ori)))
 
-                if sec not in y_true_all[idx].keys():
-                    y_true_all[idx][sec] = {'source': [], 'target': []}
-                    y_score_all[idx][sec] = {'source': [], 'target': []}
-                y_true_all[idx][sec][domain].append(status)
-                y_score_all[idx][sec][domain].append(score)
+            #     if sec not in y_true_all[idx].keys():
+            #         y_true_all[idx][sec] = {'source': [], 'target': []}
+            #         y_score_all[idx][sec] = {'source': [], 'target': []}
+            # y_true_all[idx][sec][domain].append(status)
+            #     y_score_all[idx][sec][domain].append(score)
 
     hmean_all = []
     for idx in range(len(y_true_all)):
@@ -364,7 +364,7 @@ if __name__ == '__main__':
     # param['model_pth'] = utils.get_model_pth(param)
     for dir in [param['model_dir'], param['spec_dir'], param['log_dir']]:
         os.makedirs(dir, exist_ok=True)
-
+    param['mt'] = 'heart'
     # set logger
     logger = utils.get_logger(param)
     logger.info('============== TRAIN CONFIG SUMMARY ==============')

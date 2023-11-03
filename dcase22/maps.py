@@ -8,7 +8,8 @@ CLASS_ATTRI_ALL = {'fan': ['m-n', 'f-n', 'n-lv'],
                    'slider': ['vel', 'ac', 'f-n'],
                    'ToyCar': ['car', 'spd', 'mic', 'noise'],
                    'ToyTrain': ['car', 'spd', 'mic', 'noise'],
-                   'valve': ['pat', 'panel', 'v']}
+                   'valve': ['pat', 'panel', 'v'],
+                   'heart': ['Systolic', 'Diastolic']}
 
 CLASS_SEC_ATTRI = {'fan': [['m-n'], ['f-n'], ['n-lv'], ['m-n'], ['f-n'], ['n-lv']],
                    'gearbox': [['volt'], ['wt'], ['id'], ['volt'], ['wt'], ['id']],
@@ -16,7 +17,8 @@ CLASS_SEC_ATTRI = {'fan': [['m-n'], ['f-n'], ['n-lv'], ['m-n'], ['f-n'], ['n-lv'
                    'slider': [['vel'], ['ac'], ['f-n'], ['vel'], ['ac'], ['f-n']],
                    'ToyCar': [['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise']],
                    'ToyTrain': [['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise'], ['car', 'spd', 'mic', 'noise']],
-                   'valve': [['pat'], ['pat', 'panel'], ['v'], ['pat'], ['pat', 'panel'], ['v']]}
+                   'valve': [['pat'], ['pat', 'panel'], ['v'], ['pat'], ['pat', 'panel'], ['v']],
+                   'heart': [['Systolic'], ['Diastolic'], ['Systolic'], ['Diastolic']]}
 
 ATTRI_CODE = {'fan': {'m-n': {'none': 0, 'W': 1, 'X': 2, 'Y': 3, 'Z': 4},
                       'f-n': {'none': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4},
@@ -40,4 +42,11 @@ ATTRI_CODE = {'fan': {'m-n': {'none': 0, 'W': 1, 'X': 2, 'Y': 3, 'Z': 4},
                            'noise': {'none': 0, '1': 1, '2': 2, '6': 3, '7': 4}},
               'valve': {'pat': {'none': 0, '00': 1, '01': 2, '02': 3, '03': 4, '04': 5, '05': 6, '06': 7, '07': 8, '04_05': 9, '05_05': 10},
                         'panel': {'none': 0, 'open': 1, 'b-c': 2, 's-c': 3, 'bs-c': 4},
-                        'v': {'none': 0, 'v1pat': 1, 'v2pat': 2, 'v1pat_v2pat': 3}}}
+                        'v': {'none': 0, 'v1pat': 1, 'v2pat': 2, 'v1pat_v2pat': 3}},
+              'heart': {'Systolic': {'none': 0, 'early': 1, 'holo': 2, 'mid': 3, 'late': 4},
+                        'Diastolic': {'none': 0, 'early': 1}}}
+
+HEART_ATTRI_ALL = {['Systolic', 'Diastolic']}
+HEARRT_SEC_ATTRI = {[['Systolic'], ['Diastolic'], ['Systolic'], ['Diastolic']]}
+HEART_ATTRI_CODE = {'Systolic': {'early': 0, 'holo': 1, 'mid': 2, 'late': 3, 'none': 4},
+                    'Diastolic': {'early': 0, 'none': 1}}

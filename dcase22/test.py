@@ -23,7 +23,8 @@ with open('config.yaml') as fp:
 
 def get_d_aver_emb(netD, train_set, device):
     netD.eval()
-    train_embs = {sec: {'source': [], 'target': []} for sec in param['all_sec']}
+    train_embs = {sec: {'source': [], 'target': []}
+                  for sec in param['all_sec']}
     with torch.no_grad():
         for idx in range(train_set.get_clip_num()):
             mel, attri, _ = train_set.get_clip_data(idx)
@@ -34,7 +35,8 @@ def get_d_aver_emb(netD, train_set, device):
             train_embs[attri[0, 0]][dom].append(feat_real)
     for sec in train_embs.keys():
         for dom in ['source', 'target']:
-            train_embs[sec][dom] = np.array(train_embs[sec][dom], dtype=np.float32)
+            train_embs[sec][dom] = np.array(
+                train_embs[sec][dom], dtype=np.float32)
     return train_embs
 
 
@@ -64,8 +66,10 @@ def test(netD, netG, te_ld, file_list, train_embs,
 
     netG.eval()
     # {sec: {'source': [], 'target': []}}
-    y_true_all, y_score_all = [{} for _ in metric2id.keys()], [{} for _ in metric2id.keys()]  # for calculating AUC
-    file_sec_list, score_sec_list = [{} for _ in metric2id.keys()], [{} for _ in metric2id.keys()]  # for recording score
+    y_true_all, y_score_all = [{} for _ in metric2id.keys(
+    )], [{} for _ in metric2id.keys()]  # for calculating AUC
+    file_sec_list, score_sec_list = [{} for _ in metric2id.keys(
+    )], [{} for _ in metric2id.keys()]  # for recording score
     with torch.no_grad():
         with tqdm(total=len(file_list)) as pbar:
             for (mel, attri, label), file in zip(te_ld, file_list):  # mel: 1*?*1*128*128
@@ -80,7 +84,6 @@ def test(netD, netG, te_ld, file_list, train_embs,
                 if cal_auc:
                     domain, status = attri[0, 1].item(), label[0, 0].item()
                     domain = 'source' if domain == 0 else 'target'
-
                 for idx, metric in id2metric.items():
                     wn = metric.split('_')[0]
                     if score_metric is None:
@@ -101,7 +104,8 @@ def test(netD, netG, te_ld, file_list, train_embs,
                                 dd, st, sc = tuple(metric.split('_')[1:])
                                 ori = mel if dd == 'x' else melz
                                 hat = recon if dd == 'x' else reconz
-                                score = scfunc[sc](specfunc(stfunc[st](hat, ori)))
+                                score = scfunc[sc](
+                                    specfunc(stfunc[st](hat, ori)))
                         else:
                             score = None
 
@@ -121,21 +125,31 @@ def test(netD, netG, te_ld, file_list, train_embs,
         hmean_all, result = [], [[] for _ in metric2id.keys()]
         for idx in range(len(y_true_all)):  # different scores
             y_true = dict(sorted(y_true_all[idx].items(), key=lambda t: t[0]))
-            y_score = dict(sorted(y_score_all[idx].items(), key=lambda t: t[0]))
+            y_score = dict(
+                sorted(y_score_all[idx].items(), key=lambda t: t[0]))
             for s in y_true.keys():
-                y_true_s_auc = y_true[s]['source'] + [1 for _ in np.where(np.array(y_true[s]['target']) == 1)[0]]
-                y_score_s_auc = y_score[s]['source'] + [y_score[s]['target'][idx] for idx in np.where(np.array(y_true[s]['target']) == 1)[0]]
-                y_true_t_auc = y_true[s]['target'] + [1 for _ in np.where(np.array(y_true[s]['source']) == 1)[0]]
-                y_score_t_auc = y_score[s]['target'] + [y_score[s]['source'][idx] for idx in np.where(np.array(y_true[s]['source']) == 1)[0]]
+                y_true_s_auc = y_true[s]['source'] + \
+                    [1 for _ in np.where(
+                        np.array(y_true[s]['target']) == 1)[0]]
+                y_score_s_auc = y_score[s]['source'] + [y_score[s]['target'][idx]
+                                                        for idx in np.where(np.array(y_true[s]['target']) == 1)[0]]
+                y_true_t_auc = y_true[s]['target'] + \
+                    [1 for _ in np.where(
+                        np.array(y_true[s]['source']) == 1)[0]]
+                y_score_t_auc = y_score[s]['target'] + [y_score[s]['source'][idx]
+                                                        for idx in np.where(np.array(y_true[s]['source']) == 1)[0]]
                 y_true_pauc = y_true[s]['source'] + y_true[s]['target']
                 y_score_pauc = y_score[s]['source'] + y_score[s]['target']
 
                 AUC_s = metrics.roc_auc_score(y_true_s_auc, y_score_s_auc)
                 AUC_t = metrics.roc_auc_score(y_true_t_auc, y_score_t_auc)
-                pAUC = metrics.roc_auc_score(y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
+                pAUC = metrics.roc_auc_score(
+                    y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
                 result[idx].append([AUC_s, AUC_t, pAUC])
-            hmeans = scipy.stats.hmean(np.maximum(np.array(result[idx], dtype=float), sys.float_info.epsilon), axis=0)  # AUC_s, AUC_t, pAUC
-            hmean = scipy.stats.hmean(np.maximum(np.array(result[idx], dtype=float), sys.float_info.epsilon), axis=None)
+            hmeans = scipy.stats.hmean(np.maximum(np.array(
+                result[idx], dtype=float), sys.float_info.epsilon), axis=0)  # AUC_s, AUC_t, pAUC
+            hmean = scipy.stats.hmean(np.maximum(
+                np.array(result[idx], dtype=float), sys.float_info.epsilon), axis=None)
             hmean_all.append([hmeans[0], hmeans[1], hmeans[2], hmean])
         hmean_all = np.array(hmean_all)
         best_hmean = np.max(hmean_all[:, 3])
@@ -164,7 +178,8 @@ def test(netD, netG, te_ld, file_list, train_embs,
         best_hmeans = list(map(lambda x: round(x, 4), hmean_all[best_idx, :3]))
         stat_csv_lines.append(['hmean'] + best_hmeans)
         stat_csv_lines.append(['hmean_all', round(best_hmean, 4)])
-        os.makedirs(os.path.join(param['result_dir'], param['mt']), exist_ok=True)
+        os.makedirs(os.path.join(
+            param['result_dir'], param['mt']), exist_ok=True)
         stat_pth = '{}/{}/stat.csv'.format(param['result_dir'], param['mt'])
         with open(stat_pth, 'w', newline='') as f:
             writer = csv.writer(f, lineterminator='\n')
@@ -206,11 +221,13 @@ def main():
 
 
 if __name__ == '__main__':
-    mt_list = ['bearing', 'fan', 'gearbox', 'slider', 'ToyCar', 'ToyTrain', 'valve']
+    mt_list = ['bearing', 'fan', 'gearbox',
+               'slider', 'ToyCar', 'ToyTrain', 'valve']
     card_num = torch.cuda.device_count()
     parser = argparse.ArgumentParser()
     parser.add_argument('--mt', choices=mt_list, default='ToyCar')
-    parser.add_argument('-c', '--card_id', type=int, choices=list(range(card_num)), default=7)
+    parser.add_argument('-c', '--card_id', type=int,
+                        choices=list(range(card_num)), default=7)
     opt = parser.parse_args()
 
     param['card_id'] = opt.card_id
