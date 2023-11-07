@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import torch.autograd as autograd
 import torch.nn.functional as F
 from sklearn import metrics
-
+import torch.nn as nn
 import utils
 import emb_distance as EDIS
 from net import Generator, Discriminator
@@ -89,7 +89,9 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     d2g_loss = D2GLoss(param['train']['wgan']['match_item'])
 
     for i, (mel, _, _) in enumerate(train_loader):
-        mel = mel.to(device)
+        mel_src = mel.to(device)
+        pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
+        mel = pad(mel_src).unsqueeze(1)
         recon = netG(mel)
         pred_real, _ = netD(mel)
         pred_fake, _ = netD(recon.detach())
@@ -135,6 +137,8 @@ def get_d_aver_emb(netD, train_set, device):
         for idx in range(train_set.get_clip_num()):
             mel, attri, _ = train_set.get_clip_data(idx)
             mel = torch.from_numpy(mel).to(device)
+            pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
+            mel = pad(mel).unsqueeze(1)
             _, feat_real = netD(mel)
             feat_real = feat_real.squeeze().mean(dim=0).cpu().numpy()
             dom = 'source' if attri[0][1] == 0 else 'target'
@@ -184,14 +188,14 @@ def test(netD, netG, test_loader, train_embs, logger, device):
         auc metrics are in accordance with the official implementation
     '''
     # detect_domain, score_type, score_comb= ('x', 'z'), ('2', '1'), ('sum', 'min', 'max')
-    D_metric = ['D_maha', 'D_knn', 'D_lof', 'D_cos']
+    D_metric = ['D_knn', 'D_lof', 'D_cos']  # 'D_maha'
     G_metric = ['G_x_2_sum', 'G_x_2_min', 'G_x_2_max', 'G_x_1_sum', 'G_x_1_min', 'G_x_1_max',
                 'G_z_2_sum', 'G_z_2_min', 'G_z_2_max', 'G_z_1_sum', 'G_z_1_min', 'G_z_1_max',
                 'G_z_cos_sum', 'G_z_cos_min', 'G_z_cos_max']
     all_metric = D_metric + G_metric
     edetect = EDIS.EmbeddingDetector(train_embs)
-    edfunc = {'maha': edetect.maha_score, 'knn': edetect.knn_score,
-              'lof': edetect.lof_score, 'cos': edetect.cos_score}
+    edfunc = {'knn': edetect.knn_score,
+              'lof': edetect.lof_score, 'cos': edetect.cos_score}  # 'maha': edetect.maha_score,
     metric2id = {m: mid for m, mid in zip(all_metric, range(len(all_metric)))}
     id2metric = {v: k for k, v in metric2id.items()}
 
@@ -211,7 +215,9 @@ def test(netD, netG, test_loader, train_embs, logger, device):
         {} for _ in metric2id.keys()]
     with torch.no_grad():
         for mel, attri, label in test_loader:  # mel: 1*186*1*128*128
-            mel = mel.squeeze(0).to(device)
+            mel = mel.to(device)
+            pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
+            mel = pad(mel)
             _, feat_t = netD(mel)
             recon = netG(mel)
             melz = netG(mel, outz=True)
@@ -220,7 +226,7 @@ def test(netD, netG, test_loader, train_embs, logger, device):
             label = label.numpy()
             attri = attri.squeeze(0)
             sec, domain, status = attri[0][0].item(
-            ), attri[0][1].item(), label[0][0]
+            ), attri[0][1].item(), label[0]
             domain = 'source' if domain == 0 else 'target'
 
             for idx, metric in id2metric.items():
@@ -259,8 +265,10 @@ def test(netD, netG, test_loader, train_embs, logger, device):
             y_true_pauc = y_true[s]['source'] + y_true[s]['target']
             y_score_pauc = y_score[s]['source'] + y_score[s]['target']
 
-            AUC_s = metrics.roc_auc_score(y_true_s_auc, y_score_s_auc)
-            AUC_t = metrics.roc_auc_score(y_true_t_auc, y_score_t_auc)
+            AUC_s = metrics.roc_auc_score(
+                y_true_s_auc, y_score_s_auc, multi_class='ovo')
+            AUC_t = metrics.roc_auc_score(
+                y_true_t_auc, y_score_t_auc, multi_class='ovr')
             pAUC = metrics.roc_auc_score(
                 y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
             result.append([AUC_s, AUC_t, pAUC])

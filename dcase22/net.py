@@ -66,7 +66,8 @@ class DCDecoder(nn.Module):
         main.append(ActLayer(act))
 
         while csize < isize // 2:
-            main.append(nn.ConvTranspose2d(cngf, cngf // 2, 4, 2, 1, bias=False))
+            main.append(nn.ConvTranspose2d(
+                cngf, cngf // 2, 4, 2, 1, bias=False))
             cngf = cngf // 2
             csize = csize * 2
             main.append(NormLayer(normalize, cngf, csize))
@@ -98,6 +99,7 @@ class Generator(nn.Module):
                                  normalize=param['net']['normalize']['g'])
 
     def forward(self, x, outz=False):
+        x = x.squeeze(0)
         z = self.Encoder(x)
         if outz:
             return z
@@ -138,7 +140,12 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         for module in self.main:
+            x = x.squeeze(0)
             x = module(x)
         feat = self.feat_extract_layer(x)
+        # 转置
+        if feat.shape[0] == 64:
+            feat = feat.transpose(0, 1)
+
         pred = self.output_layer(feat)
         return pred, feat

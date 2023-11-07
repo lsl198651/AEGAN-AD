@@ -15,54 +15,63 @@ class EmbeddingDetector():
         '''
 
         # Section id is only used for indexing. It is not used in the anomaly detection.
-        self.mean_emb_per_ = {sec: {'source': {}, 'target': {}} for sec in train_embs.keys()}
-        self.maha_dist = {sec: {'source': {}, 'target': {}} for sec in train_embs.keys()}
-        self.clf = {sec: {'source': {}, 'target': {}} for sec in train_embs.keys()}
-        self.lof = {sec: {'source': {}, 'target': {}} for sec in train_embs.keys()}
-        self.mean_emb_per_cos = {sec: {'source': {}, 'target': {}} for sec in train_embs.keys()}
+        self.mean_emb_per_ = {sec: {'source': {}, 'target': {}}
+                              for sec in train_embs.keys()}
+        self.maha_dist = {sec: {'source': {}, 'target': {}}
+                          for sec in train_embs.keys()}
+        self.clf = {sec: {'source': {}, 'target': {}}
+                    for sec in train_embs.keys()}
+        self.lof = {sec: {'source': {}, 'target': {}}
+                    for sec in train_embs.keys()}
+        self.mean_emb_per_cos = {
+            sec: {'source': {}, 'target': {}} for sec in train_embs.keys()}
 
         all_embs = None
         for sec in train_embs.keys():
             if all_embs is None:
-                all_embs = np.vstack([train_embs[sec]['source'], train_embs[sec]['target']])
+                all_embs = np.hstack(
+                    [train_embs[sec]['source'], train_embs[sec]['target']])
             else:
-                all_embs = np.vstack([all_embs, train_embs[sec]['source']])
-                all_embs = np.vstack([all_embs, train_embs[sec]['target']])
-        # maha
+                all_embs = np.hstack([all_embs, train_embs[sec]['source']])
+                all_embs = np.hstack([all_embs, train_embs[sec]['target']])
+        # # maha
         self.mean_emb_per_ = np.mean(all_embs, axis=0)
-        cov = np.cov(all_embs, rowvar=False)
-        if np.isnan(cov).sum() > 0:
-            raise ValueError("there is nan in the cov of train_embs")
-        self.maha_dist = DistanceMetric.get_metric('mahalanobis', V=cov)
+        # cov = np.cov(all_embs, rowvar=False)
+        # if np.isnan(cov).sum() > 0:
+        #     raise ValueError("there is nan in the cov of train_embs")
+        # new_cov = cov[:, np.newaxis]
+        # self.maha_dist = DistanceMetric.get_metric(
+        #     'mahalanobis', V=new_cov)
         # knn
-        self.clf = NearestNeighbors(n_neighbors=2, metric='cosine')  # metric='mahalanobis'
-        self.clf.fit(all_embs)
+        self.clf = NearestNeighbors(
+            n_neighbors=2, metric='cosine')  # metric='mahalanobis'
+        self.clf.fit(all_embs.reshape(-1, 1))
         # lof
         self.lof = LocalOutlierFactor(n_neighbors=4,
                                       contamination=1e-6,
                                       metric='cosine',
                                       novelty=True)
-        self.lof.fit(all_embs)
+        self.lof.fit(all_embs.reshape(-1, 1))
         # cos
-        self.mean_emb_per_cos = torch.from_numpy(self.mean_emb_per_)
+        self.mean_emb_per_cos = torch.tensor(self.mean_emb_per_)
 
     def delnan(self, mat):  # deal with nan
         if np.isnan(mat).sum() > 0:
             mat[np.isnan(mat)] = np.finfo('float32').max
         return mat
 
-    def maha_score(self, test_embs, sec):
-        score = self.maha_dist.pairwise([self.mean_emb_per_], test_embs)[0]
-        score = self.delnan(score)
-        return score
+    # def maha_score(self, test_embs, sec):
+    #     score = self.maha_dist.pairwise([self.mean_emb_per_], test_embs)[0]
+    #     score = self.delnan(score)
+    #     return score
 
     def knn_score(self, test_embs, sec):
-        score = self.clf.kneighbors(test_embs)[0].sum(-1)
+        score = self.clf.kneighbors(test_embs.reshape(-1, 1))[0].sum(-1)
         score = self.delnan(score)
         return score
 
     def lof_score(self, test_embs, sec):
-        score = - self.lof.score_samples(test_embs)[0].sum(-1)
+        score = - self.lof.score_samples(test_embs.reshape(-1, 1))[0].sum(-1)
         score = self.delnan(score)
         return score
 

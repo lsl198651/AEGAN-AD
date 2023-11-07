@@ -57,7 +57,7 @@ class train_dataset(Dataset):
                                                  setn=param['train_set'])
         # gn = 313 - 128 + 1 = 186
         gn = (self.all_clip_spec.shape[-1] - param['feat']['frame_num'] + 1)
-        self.graph_num_per_clip = gn // param['feat']['graph_hop_f']
+        self.graph_num_per_clip = 1
         # param['feat']['graph_hop_f'] = 1
         # graph_num_per_clip = 186 // 1 =186
 
@@ -89,7 +89,7 @@ class train_dataset(Dataset):
         return self.all_clip_spec.shape[0]
 
     def get_clip_data(self, idx):
-        data = np.zeros((self.graph_num_per_clip, 1,
+        data = np.zeros((self.graph_num_per_clip,
                          self.param['feat']['mel_bin'],
                          self.param['feat']['frame_num']), dtype=np.float32)
         for i in range(self.graph_num_per_clip):
@@ -97,7 +97,7 @@ class train_dataset(Dataset):
                                          i: i + self.param['feat']['frame_num']]
         attri = self.all_attri[idx].reshape(
             1, self.all_attri.shape[1]).repeat(self.graph_num_per_clip, axis=0)
-        label = self.all_label[idx].repeat(self.graph_num_per_clip, axis=0)
+        label = self.all_label[idx]
         return data, attri, label
 
 
@@ -146,8 +146,8 @@ class test_dataset(Dataset):
                                                  setn=param['train_set'],
                                                  rescale_ctl=False)
 
-        # self.graph_num_per_clip = (
-        #     self.all_clip_spec.shape[-1] - param['feat']['frame_num'] + 1) // param['feat']['graph_hop_f']
+        self.graph_num_per_clip = 1
+        # ( self.all_clip_spec.shape[-1] - param['feat']['frame_num'] + 1) // param['feat']['graph_hop_f']
 
     def __len__(self):  # number of clips
         return len(self.all_label)
@@ -160,7 +160,7 @@ class test_dataset(Dataset):
                                                          graph_id: graph_id + self.param['feat']['frame_num']]
         attri = self.all_attri[idx].reshape(
             1, self.all_attri.shape[1]).repeat(self.graph_num_per_clip, axis=0)
-        label = self.all_label[idx].repeat(self.graph_num_per_clip, axis=0)
+        label = self.all_label[idx]
         return data, attri, label
 
     def get_sec(self):
