@@ -339,7 +339,7 @@ if __name__ == '__main__':
     # trivial settings
     utils.set_seed(opt.seed)
     param['card_id'] = opt.card_id
-    param['mt'] = opt.mt
+    param['mt'] = 'heart'
     param['model_pth'] = utils.get_model_pth(param)
     param['resume'] = opt.resume
     for dir in [param['model_dir'], param['spec_dir'], param['log_dir']]:

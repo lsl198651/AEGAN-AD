@@ -16,9 +16,9 @@ net:
   act: ["leakyrelu", "relu"] # Encoder, Decoder
   normalize: { "d": "ln", "g": "ln" }
   nz: 256
-  ndf: 32
+  ndf: 4
   ngf: 32
-  isize: 128
+  isize: 64
 
 train_set: "dev" # 'dev', 'eval', 'deval'
 

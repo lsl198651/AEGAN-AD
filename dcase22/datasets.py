@@ -14,23 +14,25 @@ class train_dataset(Dataset):
         '''
         clip_dir, set_name = {}, []
         if 'dev' in param['train_set']:
-            clip_dir['dev'] = os.path.join(
-                param['dataset_dir'], 'dev_data', param['mt'], 'train')
+            clip_dir['dev'] = r'D:\Shilong\murmur\01_dataset\04_newDataset\testset\absent'
+            # os.path.join(
+            #     param['dataset_dir'], 'train_set', param['mt'], 'train')
             set_name.append('dev')
         if 'eval' in param['train_set']:
-            clip_dir['eval'] = os.path.join(
-                param['dataset_dir'], 'eval_data', param['mt'], 'train')
+            clip_dir['eval'] = r'D:\Shilong\murmur\01_dataset\04_newDataset\testset\eval'
+            # os.path.join(
+            #     param['dataset_dir'], 'eval_data', param['mt'], 'train')
             set_name.append('eval')
         self.param = param
 
-        self.set_clip_addr, set_attri, set_label = {}, {}, {}
+        self.set_clip_addr, set_attri, set_label, set_wav = {}, {}, {}, {}
         for set_type in set_name:
             self.set_clip_addr[set_type] = utils.get_clip_addr(
                 clip_dir[set_type])
-            set_attri[set_type] = utils.extract_attri(
+            set_wav[set_type], set_label[set_type], set_attri[set_type] = utils.extract_attri(
                 self.set_clip_addr[set_type], param['mt'])
-            set_label[set_type] = utils.generate_label(
-                self.set_clip_addr[set_type], set_type, 'train')
+            #  = utils.generate_label(
+            #     self.set_clip_addr[set_type], set_type, 'train')
 
         self.all_attri, self.all_label = None, None
         for set_type in set_name:
@@ -45,7 +47,7 @@ class train_dataset(Dataset):
 
         print("============== TRAIN DATASET GENERATOR ==============")
         # 3000*128*313的logmel谱
-        self.all_clip_spec = utils.generate_spec(clip_addr=self.set_clip_addr,
+        self.all_clip_spec = utils.generate_spec(clip_addr=set_wav,
                                                  fft_num=param['feat']['fft_num'],
                                                  mel_bin=param['feat']['mel_bin'],
                                                  frame_hop=param['feat']['frame_hop'],
@@ -60,19 +62,20 @@ class train_dataset(Dataset):
         # graph_num_per_clip = 186 // 1 =186
 
     def __len__(self):
-        return self.all_label.shape[0] * self.graph_num_per_clip
+        return len(self.all_label)
 
     def __getitem__(self, idx):  # output one segment at a time
-        clip_id = idx // self.graph_num_per_clip  # 1 // 186 = 0
-        spec_id = idx % self.graph_num_per_clip  # 1 % 186 = 1
-        data = np.zeros((1, self.param['feat']['mel_bin'],
-                         self.param['feat']['frame_num']), dtype=np.float32)
-        # zeros = 1*128*313, dtype = float32
-        data[0, :, :] = self.all_clip_spec[clip_id, :,
-                                           spec_id: spec_id + self.param['feat']['frame_num']]
+        # clip_id = idx // self.graph_num_per_clip  # 1 // 186 = 0
+        # spec_id = idx % self.graph_num_per_clip  # 1 % 186 = 1
+        # data = np.zeros((1, self.param['feat']['mel_bin'],
+        #                  self.param['feat']['frame_num']), dtype=np.float32)
+        # # zeros = 1*128*313, dtype = float32
+        # data[0, :, :] = self.all_clip_spec[clip_id, :,
+        #                                    spec_id: spec_id + self.param['feat']['frame_num']]
         # all_clip_spec[0, :, 1: 1 + 313]
-        attri = self.all_attri[clip_id]
-        label = self.all_label[clip_id]
+        attri = self.all_attri[idx]
+        label = self.all_label[idx]
+        data = self.all_clip_spec[idx]
         return data, attri, label
 
     # all_attri第0列去除重复数据
@@ -109,20 +112,23 @@ class test_dataset(Dataset):
         '''
         clip_dir = {}
         if set_type == 'dev':
-            clip_dir['dev'] = os.path.join(
-                param['dataset_dir'], 'dev_data', param['mt'], data_type)
+            clip_dir['dev'] = r'D:\Shilong\murmur\01_dataset\04_newDataset\testset\eval'
+            # os.path.join(
+            #     param['dataset_dir'], 'dev_data', param['mt'], data_type)
         if set_type == 'eval':
-            clip_dir['eval'] = os.path.join(
+            clip_dir['eval'] = r'D:\Shilong\murmur\01_dataset\04_newDataset\testset\eval'
+            os.path.join(
                 param['dataset_dir'], 'eval_data', param['mt'], data_type)
         self.param = param
         eval_te_flag = True if set_type == 'eval' and data_type == 'test' else False
 
-        self.set_clip_addr, set_attri, set_label = {}, {}, {}
+        self.set_clip_addr, set_attri, set_label, set_wav = {}, {}, {}, {}
+
         self.set_clip_addr[set_type] = utils.get_clip_addr(clip_dir[set_type])
-        set_attri[set_type] = utils.extract_attri(
+        set_wav[set_type], set_label[set_type], set_attri[set_type] = utils.extract_attri(
             self.set_clip_addr[set_type], param['mt'], eval_te_flag)
-        set_label[set_type] = utils.generate_label(
-            self.set_clip_addr[set_type], set_type, data_type)
+        # set_label[set_type] = utils.generate_label(
+        #     self.set_clip_addr[set_type], set_type, data_type)
 
         self.set_type = set_type
         self.all_attri, self.all_label = None, None
@@ -130,7 +136,7 @@ class test_dataset(Dataset):
         self.all_label = set_label[set_type]
 
         print("============== TEST DATASET GENERATOR ==============")
-        self.all_clip_spec = utils.generate_spec(clip_addr=self.set_clip_addr,
+        self.all_clip_spec = utils.generate_spec(clip_addr=set_wav,
                                                  fft_num=param['feat']['fft_num'],
                                                  mel_bin=param['feat']['mel_bin'],
                                                  frame_hop=param['feat']['frame_hop'],
@@ -140,11 +146,11 @@ class test_dataset(Dataset):
                                                  setn=param['train_set'],
                                                  rescale_ctl=False)
 
-        self.graph_num_per_clip = (
-            self.all_clip_spec.shape[-1] - param['feat']['frame_num'] + 1) // param['feat']['graph_hop_f']
+        # self.graph_num_per_clip = (
+        #     self.all_clip_spec.shape[-1] - param['feat']['frame_num'] + 1) // param['feat']['graph_hop_f']
 
     def __len__(self):  # number of clips
-        return self.all_label.shape[0]
+        return len(self.all_label)
 
     def __getitem__(self, idx):  # output segments of a clip at a time
         data = np.zeros((self.graph_num_per_clip, 1,

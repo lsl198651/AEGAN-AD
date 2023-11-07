@@ -6,7 +6,7 @@ import datetime
 import random
 import torch
 from tqdm import tqdm
-
+import torchaudio.compliance.kaldi as ta_kaldi
 from maps import CLASS_ATTRI_ALL, CLASS_SEC_ATTRI, ATTRI_CODE
 
 
@@ -20,6 +20,14 @@ def get_clip_addr(clip_dir, ext='wav'):
     return clip_addr
 
 
+def wav_normalize(data):
+    """归一化"""
+    # data = data.reshape(1, -1)
+    range = np.max(data) - np.min(data)
+    data = (data-np.min(data))/range
+    return data
+
+
 def generate_spec(clip_addr, fft_num, mel_bin, frame_hop, top_dir,
                   mt, data_type, setn, rescale_ctl=True):
     all_clip_spec = None
@@ -31,17 +39,17 @@ def generate_spec(clip_addr, fft_num, mel_bin, frame_hop, top_dir,
                                      f'{data_type}_raw_mel_{mel_bin}_{fft_num}_{frame_hop}_1.npy')
 
         if not os.path.exists(raw_data_file):
-            for idx in tqdm(range(len(clip_addr[set_type])), desc=f'{mt}-{setn}-{data_type}'):
-                clip, sr = librosa.load(
-                    clip_addr[set_type][idx], sr=None, mono=True)
-                mel = librosa.feature.melspectrogram(y=clip, sr=sr, n_fft=fft_num,
-                                                     hop_length=frame_hop, n_mels=mel_bin)
-                mel_db = librosa.power_to_db(mel, ref=1)  # log-mel, (128, 313)
+            for idx in tqdm(range(len(clip_addr[set_type])), desc=f'{mt}-{data_type}'):
 
+                wavform = torch.tensor(clip_addr[set_type][idx]).unsqueeze(0)
+                mel_db = ta_kaldi.fbank(
+                    wavform, num_mel_bins=128, sample_frequency=16000, frame_length=25, frame_shift=10)
+                mel_db = torch.transpose(mel_db, 0, 1)
                 if idx == 0:
                     set_clip_spec = np.zeros(
-                        (len(clip_addr[set_type]) * mel_bin, mel.shape[1]), dtype=np.float32)
+                        (len(clip_addr[set_type]) * mel_bin, mel_db.shape[1]), dtype=np.float32)
                 set_clip_spec[idx * mel_bin:(idx + 1) * mel_bin, :] = mel_db
+                # set_clip_spec = set_clip_spec.numpy()
             np.save(raw_data_file, set_clip_spec)  # 保存logmel谱数据
         else:
             set_clip_spec = np.load(raw_data_file)
@@ -80,8 +88,8 @@ def generate_label(clip_addr, set_type, data_type):
         # test：section_01_target_test_normal_0029_f-n_C.wav
         if set_type == 'dev' and data_type == 'test':
             status_note = clip_addr[idx].split('\\')[-1].split('_')[4]
-            assert status_note in ['normal', 'anomaly']
-            status = 0 if status_note == 'normal' else 1
+            assert status_note in ['Absent', 'Present']
+            status = 0 if status_note == 'Absent' else 1
         elif data_type == 'train':
             status = 0
         else:  # for eval test
@@ -93,39 +101,68 @@ def generate_label(clip_addr, set_type, data_type):
 def extract_attri(clip_addr, mt, eval_te_flag=False):
     # train：section_01_target_train_normal_0000_f-n_C.wav
     # test：section_01_target_test_normal_0029_f-n_C.wav
-    # list of list, [sec, domain, att0, att1, att2, ...]
+    # data:14998_AV_s1+Systolic_1_Absent_nan.wav
+    # list of list, [section, domain, att0, att1, att2, ...]
+    wav = []
+    label = []
+    data_length = 6000
     all_attri = [[] for _ in clip_addr]
     attri_idx = CLASS_SEC_ATTRI[mt]
     for cid, clip in enumerate(clip_addr):
         file_name = os.path.basename(
             clip)[:os.path.basename(clip).index('.wav')]
         segs = file_name.split('_')
-        sec, domain_note = int(segs[1][1]), segs[2]
-        domain = 0 if domain_note == 'source' else 1
+        # 取消domin的提取
+        # section對應心音的聽診去
+        sec_note, domain_note = segs[2], segs[2]
+        # domain = 0 if domain_note == 'source' else 1
+        sec = 0 if sec_note == 's1+Systolic' else 1
         # extraction of auxiliary scene labels, not used in training
         all_attri[cid].append(sec)
         if not eval_te_flag:
-            all_attri[cid].append(domain)
+            # all_attri[cid].append(domain)
             sec_attri = attri_idx[sec]
             for atn in CLASS_ATTRI_ALL[mt]:
                 if atn not in sec_attri:
-                    atv = 'none'
+                    atv = 'nan'
                 else:
-                    if mt == 'valve' and atn == 'v':
-                        if 'v1pat' in segs and 'v2pat' in segs:
-                            atv = 'v1pat_v2pat'
-                        elif 'v1pat' in segs:
-                            atv = 'v1pat'
-                        elif 'v2pat' in segs:
-                            atv = 'v2pat'
-                        else:
-                            atv = 'none'
-                    else:
-                        assert atn in segs
-                        atv = segs[segs.index(atn) + 1]
+                    # if mt == 'valve' and atn == 'v':
+                    #     if 'v1pat' in segs and 'v2pat' in segs:
+                    #         atv = 'v1pat_v2pat'
+                    #     elif 'v1pat' in segs:
+                    #         atv = 'v1pat'
+                    #     elif 'v2pat' in segs:
+                    #         atv = 'v2pat'
+                    #     else:
+                    #         atv = 'none'
+                    # else:
+                    assert atn in segs
+                    atv = segs[5]
                 all_attri[cid].append(
                     ATTRI_CODE[mt][atn][atv])  # value to code
-    return np.array(all_attri)
+# ---------------------------------------------------------------------
+        y, sr = librosa.load(clip, sr=4000)
+        y_16k = librosa.resample(y=y, orig_sr=sr, target_sr=16000)
+        y_16k_norm = wav_normalize(y_16k)  # 归一化
+        print("y_16k size: "+str(y_16k_norm.size))
+        if y_16k_norm.shape[0] < data_length:
+            y_16k_norm = np.pad(
+                y_16k_norm,
+                ((0, data_length - y_16k_norm.shape[0])),
+                "constant",
+                constant_values=(0, 0),
+            )
+        elif y_16k_norm.shape[0] > data_length:
+            y_16k_norm = y_16k_norm[-data_length:]
+        wav.append(y_16k_norm)
+
+        # 标签读取
+        if segs[4] == "Absent":  # Absent
+            label.append(0)
+        if segs[4] == "Present":  # Present
+            label.append(1)  # 说明该听诊区无杂音
+
+    return wav, label, np.array(all_attri)
 
 
 def weights_init(mod):
