@@ -144,7 +144,7 @@ def extract_attri(clip_addr, mt, eval_te_flag=False):
         y, sr = librosa.load(clip, sr=4000)
         y_16k = librosa.resample(y=y, orig_sr=sr, target_sr=16000)
         y_16k_norm = wav_normalize(y_16k)  # 归一化
-        print("y_16k size: "+str(y_16k_norm.size))
+        # print("y_16k size: "+str(y_16k_norm.size))
         if y_16k_norm.shape[0] < data_length:
             y_16k_norm = np.pad(
                 y_16k_norm,

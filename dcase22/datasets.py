@@ -45,7 +45,7 @@ class train_dataset(Dataset):
                 self.all_label = np.hstack(
                     (self.all_label, set_label[set_type]))
 
-        print("============== TRAIN DATASET GENERATOR ==============")
+        print(" TRAIN DATASET GENERATOR ==============")
         # 3000*128*313的logmel谱
         self.all_clip_spec = utils.generate_spec(clip_addr=set_wav,
                                                  fft_num=param['feat']['fft_num'],
@@ -135,7 +135,7 @@ class test_dataset(Dataset):
         self.all_attri = set_attri[set_type]
         self.all_label = set_label[set_type]
 
-        print("============== TEST DATASET GENERATOR ==============")
+        print(" TEST DATASET GENERATOR ==============")
         self.all_clip_spec = utils.generate_spec(clip_addr=set_wav,
                                                  fft_num=param['feat']['fft_num'],
                                                  mel_bin=param['feat']['mel_bin'],
