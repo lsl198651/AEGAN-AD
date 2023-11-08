@@ -265,13 +265,13 @@ def test(netD, netG, test_loader, train_embs, logger, device):
             y_true_pauc = y_true[s]['source'] + y_true[s]['target']
             y_score_pauc = y_score[s]['source'] + y_score[s]['target']
 
-            AUC_s = metrics.roc_auc_score(
-                y_true_s_auc, y_score_s_auc, multi_class='ovo')
-            AUC_t = metrics.roc_auc_score(
-                y_true_t_auc, y_score_t_auc, multi_class='ovr')
-            pAUC = metrics.roc_auc_score(
-                y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
-            result.append([AUC_s, AUC_t, pAUC])
+            # AUC_s = metrics.roc_auc_score(
+            #     y_true_s_auc, y_score_s_auc, multi_class='ovr')
+            # AUC_t = metrics.roc_auc_score(
+            #     y_true_t_auc, y_score_t_auc, multi_class='ovr')
+            # pAUC = metrics.roc_auc_score(
+            #     y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
+            # result.append([AUC_s, AUC_t, pAUC])
         hmeans = scipy.stats.hmean(np.maximum(np.array(
             result, dtype=float), sys.float_info.epsilon), axis=0)  # AUC_s, AUC_t, pAUC
         hmean = scipy.stats.hmean(np.maximum(
