@@ -29,23 +29,23 @@ class train_dataset(Dataset):
         for set_type in set_name:
             self.set_clip_addr[set_type] = utils.get_clip_addr(
                 clip_dir[set_type])
-            set_wav[set_type], set_label[set_type], set_attri[set_type] = utils.extract_attri(
-                self.set_clip_addr[set_type], param['mt'])
+            set_wav[set_type], set_label[set_type] = utils.extract_attri(
+                self.set_clip_addr[set_type], param['mt'])  # , set_attri[set_type]
             #  = utils.generate_label(
             #     self.set_clip_addr[set_type], set_type, 'train')
 
         self.all_attri, self.all_label = None, None
         for set_type in set_name:
             if self.all_label is None:
-                self.all_attri = set_attri[set_type]
+                # self.all_attri = set_attri[set_type]
                 self.all_label = set_label[set_type]
             else:
-                self.all_attri = np.vstack(
-                    (self.all_attri, set_attri[set_type]))
+                # self.all_attri = np.vstack(
+                #     (self.all_attri, set_attri[set_type]))
                 self.all_label = np.hstack(
                     (self.all_label, set_label[set_type]))
 
-        print(" TRAIN DATASET GENERATOR ==============")
+        print(" =======TRAIN DATASET GENERATOR =======")
         # 3000*128*313的logmel谱
         self.all_clip_spec = utils.generate_spec(clip_addr=set_wav,
                                                  fft_num=param['feat']['fft_num'],
@@ -73,14 +73,14 @@ class train_dataset(Dataset):
         # data[0, :, :] = self.all_clip_spec[clip_id, :,
         #                                    spec_id: spec_id + self.param['feat']['frame_num']]
         # all_clip_spec[0, :, 1: 1 + 313]
-        attri = self.all_attri[idx]
+        # attri = self.all_attri[idx]
         label = self.all_label[idx]
         data = self.all_clip_spec[idx]
-        return data, attri, label
+        return data,  label  # attri,
 
     # all_attri第0列去除重复数据
-    def get_sec(self):
-        return np.unique(self.all_attri[:, 0]).tolist()
+    # def get_sec(self):
+    #     return np.unique(self.all_label[:, 0]).tolist()
 
     def get_clip_name(self, set_type):
         return list(map(lambda f: os.path.basename(f), self.set_clip_addr[set_type]))
@@ -95,10 +95,10 @@ class train_dataset(Dataset):
         for i in range(self.graph_num_per_clip):
             data[i] = self.all_clip_spec[idx, :,
                                          i: i + self.param['feat']['frame_num']]
-        attri = self.all_attri[idx].reshape(
-            1, self.all_attri.shape[1]).repeat(self.graph_num_per_clip, axis=0)
+        # attri = self.all_attri[idx].reshape(
+        #     1, self.all_attri.shape[1]).repeat(self.graph_num_per_clip, axis=0)
         label = self.all_label[idx]
-        return data, attri, label
+        return data, label  # attri,
 
 
 class test_dataset(Dataset):
@@ -125,17 +125,17 @@ class test_dataset(Dataset):
         self.set_clip_addr, set_attri, set_label, set_wav = {}, {}, {}, {}
 
         self.set_clip_addr[set_type] = utils.get_clip_addr(clip_dir[set_type])
-        set_wav[set_type], set_label[set_type], set_attri[set_type] = utils.extract_attri(
+        set_wav[set_type], set_label[set_type] = utils.extract_attri(
             self.set_clip_addr[set_type], param['mt'], eval_te_flag)
         # set_label[set_type] = utils.generate_label(
         #     self.set_clip_addr[set_type], set_type, data_type)
 
         self.set_type = set_type
-        self.all_attri, self.all_label = None, None
-        self.all_attri = set_attri[set_type]
+        self.all_label = None
+        # self.all_attri = set_attri[set_type]
         self.all_label = set_label[set_type]
 
-        print(" TEST DATASET GENERATOR ==============")
+        print("  ======TEST DATASET GENERATOR========")
         self.all_clip_spec = utils.generate_spec(clip_addr=set_wav,
                                                  fft_num=param['feat']['fft_num'],
                                                  mel_bin=param['feat']['mel_bin'],
@@ -158,13 +158,13 @@ class test_dataset(Dataset):
         for graph_id in range(self.graph_num_per_clip):
             data[graph_id, 0, :, :] = self.all_clip_spec[idx, :,
                                                          graph_id: graph_id + self.param['feat']['frame_num']]
-        attri = self.all_attri[idx].reshape(
-            1, self.all_attri.shape[1]).repeat(self.graph_num_per_clip, axis=0)
+        # attri = self.all_attri[idx].reshape(
+        #     1, self.all_attri.shape[1]).repeat(self.graph_num_per_clip, axis=0)
         label = self.all_label[idx]
-        return data, attri, label
+        return data,  label  # attri,
 
-    def get_sec(self):
-        return np.unique(self.all_attri[:, 0]).tolist()
+    # def get_sec(self):
+    #     return np.unique(self.all_attri[:, 0]).tolist()
 
     def get_clip_name(self):
         return list(map(lambda f: os.path.basename(f), self.set_clip_addr[self.set_type]))

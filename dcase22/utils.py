@@ -113,7 +113,7 @@ def extract_attri(clip_addr, mt, eval_te_flag=False):
             clip)[:os.path.basename(clip).index('.wav')]
         segs = file_name.split('_')
         # 取消domin的提取
-        # section對應心音的聽診去
+        # section对应心音听诊区
         sec_note, domain_note = segs[2], segs[2]
         # domain = 0 if domain_note == 'source' else 1
         sec = 0 if sec_note == 's1+Systolic' else 1
@@ -162,7 +162,7 @@ def extract_attri(clip_addr, mt, eval_te_flag=False):
         if segs[4] == "Present":  # Present
             label.append(1)  # 说明该听诊区无杂音
 
-    return wav, label, np.array(all_attri)
+    return wav, label  # , np.array(all_attri)
 
 
 def weights_init(mod):

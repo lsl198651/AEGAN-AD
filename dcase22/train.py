@@ -88,7 +88,7 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     MSE = torch.nn.MSELoss()
     d2g_loss = D2GLoss(param['train']['wgan']['match_item'])
 
-    for i, (mel, _, _) in enumerate(train_loader):
+    for i, (mel, _) in enumerate(train_loader):
         mel_src = mel.to(device)
         pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
         mel = pad(mel_src).unsqueeze(1)
@@ -122,6 +122,8 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     aver_loss['recon'] /= gloss_num
     aver_loss['d2g'] /= gloss_num
     aver_loss['gloss'] /= gloss_num
+    aver_loss['recon'] = f"{aver_loss['recon']:.4f}"
+    aver_loss['d2g'] = f"{aver_loss['d2g']:.4f}"
     aver_loss['gloss'] = f"{aver_loss['gloss']:.4e}"
     return netD, netG, aver_loss
 
@@ -144,9 +146,9 @@ def get_d_aver_emb(netD, train_set, device):
             dom = 'source' if attri[0][1] == 0 else 'target'
             train_embs[attri[0][0]][dom].append(feat_real)
     for sec in train_embs.keys():
-        for dom in ['source', 'target']:
-            train_embs[sec][dom] = np.array(
-                train_embs[sec][dom], dtype=np.float32)
+        # for dom in ['source', 'target']:
+        train_embs[sec] = np.array(
+            train_embs[sec], dtype=np.float32)
     return train_embs
 
 
@@ -155,18 +157,18 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
         bestD = copy.deepcopy(netD.state_dict())
         bestG = copy.deepcopy(netG.state_dict())
     d2g_eff = param['train']['wgan']['feat_match_eff']
-    logger.info(" MODEL TRAINING ==============")
+    logger.info("  =======MODEL TRAINING=======")
 
     for i in range(param['train']['epoch']):
         start = time.time()
 
         netD, netG, aver_loss = train_one_epoch(
             netD, netG, train_loader, optimD, optimG, device, d2g_eff)
-
-        train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
+        print(aver_loss)
+        # train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
 
         # hmean, metric =
-        test(netD, netG, test_loader['dev_test'], train_embs, logger, device)
+        # test(netD, netG, test_loader['dev_test'], train_embs, logger, device)
 
         # if best_hmean is None or best_hmean < hmean[3]:
         #     best_hmean = hmean[3]
@@ -177,8 +179,8 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
         # logger.info('=======> [AUC_s: {:.4f}] [AUC_t: {:.4f}] [pAUC: {:.4f}] [hmean: {:.4f}] [metric: {}] [best: {:.4f}]'.format(
         #             hmean[0], hmean[1], hmean[2], hmean[3], metric, best_hmean))
 
-    torch.save({'netD': bestD, 'netG': bestG,
-               'best_hmean': best_hmean}, param['model_pth'])
+    # torch.save({'netD': bestD, 'netG': bestG,
+    #            'best_hmean': best_hmean}, param['model_pth'])
 
 
 # @profile
@@ -291,7 +293,7 @@ def main(logger):
     # create datasets and dataloaders
     train_data = train_dataset(param)
     # all_attri去除重复数据
-    param['all_sec'] = train_data.get_sec()
+    # param['all_sec'] = train_data.get_sec()
     train_loader = DataLoader(train_data,
                               batch_size=param['train']['batch_size'],
                               shuffle=True,
