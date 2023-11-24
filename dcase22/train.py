@@ -88,7 +88,7 @@ def train_one_epoch(netD, netG, train_loader, optimD, optimG, device, d2g_eff):
     MSE = torch.nn.MSELoss()
     d2g_loss = D2GLoss(param['train']['wgan']['match_item'])
 
-    for i, (mel, _) in enumerate(train_loader):
+    for i, (mel, targat) in enumerate(train_loader):
         mel_src = mel.to(device)
         pad = nn.ZeroPad2d(padding=(0, 92, 0, 0))
         mel = pad(mel_src).unsqueeze(1)
@@ -153,15 +153,13 @@ def get_d_aver_emb(netD, train_set, device):
 
 
 def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device, best_hmean=None):
-    if best_hmean is not None:
-        bestD = copy.deepcopy(netD.state_dict())
-        bestG = copy.deepcopy(netG.state_dict())
+    # if best_hmean is not None:
+    #     bestD = copy.deepcopy(netD.state_dict())
+    #     bestG = copy.deepcopy(netG.state_dict())
     d2g_eff = param['train']['wgan']['feat_match_eff']
-    logger.info("  =======MODEL TRAINING=======")
+    logger.info("=======MODEL TRAINING=======")
 
     for i in range(param['train']['epoch']):
-        start = time.time()
-
         netD, netG, aver_loss = train_one_epoch(
             netD, netG, train_loader, optimD, optimG, device, d2g_eff)
         print(aver_loss)
@@ -289,7 +287,7 @@ def test(netD, netG, test_loader, train_embs, logger, device):
 
 def main(logger):
     logger.info(
-        ' Train Machine Type: {} ========='.format(param['mt']))
+        ' =====Train Machine Type: {}===='.format(param['mt']))
     # create datasets and dataloaders
     train_data = train_dataset(param)
     # all_attri去除重复数据
@@ -358,7 +356,7 @@ if __name__ == '__main__':
     logger = utils.get_logger(param)
     logger.info(f'Seed: {opt.seed}')
     logger.info(f"Machine Type: {param['mt']}")
-    logger.info(' TRAIN CONFIG SUMMARY ==============')
+    logger.info('=======TRAIN CONFIG SUMMARY=======')
     summary = utils.config_summary(param)
     for key in summary.keys():
         message = '{}: '.format(key)
