@@ -165,17 +165,17 @@ def train(netD, netG, train_loader, test_loader, optimD, optimG, logger, device,
 
         train_embs = get_d_aver_emb(netD, train_loader.dataset, device)
 
-        hmean, metric = test(
-            netD, netG, test_loader['dev_test'], train_embs, logger, device)
+        # hmean, metric =
+        test(netD, netG, test_loader['dev_test'], train_embs, logger, device)
 
-        if best_hmean is None or best_hmean < hmean[3]:
-            best_hmean = hmean[3]
-            bestD = copy.deepcopy(netD.state_dict())
-            bestG = copy.deepcopy(netG.state_dict())
-        logger.info('epoch {}: [recon: {:.4e}] [d2g: {:.4e}] [gloss: {}] [time: {:.0f}s]'.format(
-                    i, aver_loss['recon'], aver_loss['d2g'], aver_loss['gloss'], time.time() - start))
-        logger.info('=======> [AUC_s: {:.4f}] [AUC_t: {:.4f}] [pAUC: {:.4f}] [hmean: {:.4f}] [metric: {}] [best: {:.4f}]'.format(
-                    hmean[0], hmean[1], hmean[2], hmean[3], metric, best_hmean))
+        # if best_hmean is None or best_hmean < hmean[3]:
+        #     best_hmean = hmean[3]
+        #     bestD = copy.deepcopy(netD.state_dict())
+        #     bestG = copy.deepcopy(netG.state_dict())
+        # logger.info('epoch {}: [recon: {:.4e}] [d2g: {:.4e}] [gloss: {}] [time: {:.0f}s]'.format(
+        #             i, aver_loss['recon'], aver_loss['d2g'], aver_loss['gloss'], time.time() - start))
+        # logger.info('=======> [AUC_s: {:.4f}] [AUC_t: {:.4f}] [pAUC: {:.4f}] [hmean: {:.4f}] [metric: {}] [best: {:.4f}]'.format(
+        #             hmean[0], hmean[1], hmean[2], hmean[3], metric, best_hmean))
 
     torch.save({'netD': bestD, 'netG': bestG,
                'best_hmean': best_hmean}, param['model_pth'])
@@ -264,26 +264,25 @@ def test(netD, netG, test_loader, train_embs, logger, device):
                                                     for idx in np.where(np.array(y_true[s]['source']) == 1)[0]]
             y_true_pauc = y_true[s]['source'] + y_true[s]['target']
             y_score_pauc = y_score[s]['source'] + y_score[s]['target']
+            AUC_s = metrics.roc_auc_score(
+                y_true_s_auc, y_score_s_auc, multi_class='ovr')
+            AUC_t = metrics.roc_auc_score(
+                y_true_t_auc, y_score_t_auc, multi_class='ovr')
+            pAUC = metrics.roc_auc_score(
+                y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
+            result.append([AUC_s, AUC_t, pAUC])
+    #     hmeans = scipy.stats.hmean(np.maximum(np.array(
+    #         result, dtype=float), sys.float_info.epsilon), axis=0)  # AUC_s, AUC_t, pAUC
+    #     hmean = scipy.stats.hmean(np.maximum(
+    #         np.array(result, dtype=float), sys.float_info.epsilon), axis=None)
+    #     hmean_all.append([hmeans[0], hmeans[1], hmeans[2], hmean])
+    # hmean_all = np.array(hmean_all)
+    # best_hmean = np.max(hmean_all[:, 3])
+    # best_idx = np.where(hmean_all[:, 3] == best_hmean)[0][0]
+    # best_metric = id2metric[best_idx]
 
-            # AUC_s = metrics.roc_auc_score(
-            #     y_true_s_auc, y_score_s_auc, multi_class='ovr')
-            # AUC_t = metrics.roc_auc_score(
-            #     y_true_t_auc, y_score_t_auc, multi_class='ovr')
-            # pAUC = metrics.roc_auc_score(
-            #     y_true_pauc, y_score_pauc, max_fpr=param['detect']['p'])
-            # result.append([AUC_s, AUC_t, pAUC])
-        hmeans = scipy.stats.hmean(np.maximum(np.array(
-            result, dtype=float), sys.float_info.epsilon), axis=0)  # AUC_s, AUC_t, pAUC
-        hmean = scipy.stats.hmean(np.maximum(
-            np.array(result, dtype=float), sys.float_info.epsilon), axis=None)
-        hmean_all.append([hmeans[0], hmeans[1], hmeans[2], hmean])
-    hmean_all = np.array(hmean_all)
-    best_hmean = np.max(hmean_all[:, 3])
-    best_idx = np.where(hmean_all[:, 3] == best_hmean)[0][0]
-    best_metric = id2metric[best_idx]
-
-    logger.info('-' * 110)
-    return hmean_all[best_idx, :], best_metric
+    # logger.info('-' * 110)
+    # return hmean_all[best_idx, :], best_metric
 
 
 def main(logger):
